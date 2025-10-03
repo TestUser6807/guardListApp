@@ -3,6 +3,8 @@ import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CalendarModule } from 'primeng/calendar';
 import { MultiSelectModule } from 'primeng/multiselect';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 @Component({
   selector: 'app-root',
@@ -25,6 +27,128 @@ export class AppComponent {
   // Güncelleme modları
   isEditing = false;
   editingIndex: number | null = null;
+
+  exportExcel(): void {
+    // 1. Veri hazırlanıyor
+    const worksheetData = this.assignedDates.map((item) => ({
+      Tarih: this.formatDate(item.date),
+      Atanan: item.person,
+    }));
+
+    // 2. En eski ve en yeni tarih
+    const timestamps = this.assignedDates.map((item) =>
+      new Date(item.date).getTime()
+    );
+    const minDate = this.formatDate(new Date(Math.min(...timestamps)));
+    const maxDate = this.formatDate(new Date(Math.max(...timestamps)));
+    const title = `${minDate} - ${maxDate} Nöbet Listesi`;
+
+    // 3. Worksheet oluştur ve veriyi A2 hücresinden başlat
+    const worksheet = XLSX.utils.aoa_to_sheet([]);
+    XLSX.utils.sheet_add_json(worksheet, worksheetData, {
+      origin: 'A2',
+      skipHeader: false,
+    });
+
+    // 4. Başlığı A1 ve B1 hücresinde birleştirerek yaz
+    XLSX.utils.sheet_add_aoa(worksheet, [[title]], { origin: 'A1' });
+    (worksheet as any)['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
+
+    (worksheet as any)['A1'].s = {
+      font: { bold: true, sz: 18 },
+      alignment: { horizontal: 'center' },
+    };
+
+    // 5. Her kişiye renk ata (normalize ederek: trim ve lowercase)
+    const colorPalette = [
+      'FFB6C1',
+      'ADD8E6',
+      '90EE90',
+      'FFFF99',
+      'FFD700',
+      'FFA07A',
+      'DDA0DD',
+      '00CED1',
+      'F08080',
+      'E0FFFF',
+      'C0C0C0',
+      'FFC0CB',
+      '98FB98',
+      'AFEEEE',
+      'FFFACD',
+      '0046FF',
+      '73C8D2',
+      'F5F1DC',
+      'FF9013',
+      '004030',
+      '4A9782',
+      'DCD0A8',
+      'FFF9E5',
+    ];
+
+    // İsimleri normalize et (trim ve lowercase)
+    const uniquePeople = [
+      ...new Set(
+        this.assignedDates.map((item) => item.person.trim().toLowerCase())
+      ),
+    ];
+
+    const personColors: { [key: string]: string } = {};
+    uniquePeople.forEach((person, i) => {
+      personColors[person] = colorPalette[i % colorPalette.length];
+    });
+
+    // 6. Satırları renklendir
+    const startRow = 2; // veri A2’den başlıyor, yani Excel'de 2. satır
+    this.assignedDates.forEach((item, index) => {
+      const row = startRow + index;
+      const personKey = item.person.trim().toLowerCase();
+      const fillColor = personColors[personKey].replace('#', '');
+
+      ['A', 'B'].forEach((col) => {
+        const cellRef = `${col}${row}`;
+        if (worksheet[cellRef]) {
+          (worksheet[cellRef] as any).s = {
+            fill: {
+              patternType: 'solid',
+              fgColor: { rgb: fillColor },
+            },
+            font: {
+              color: { rgb: '000000' },
+            },
+            alignment: {
+              vertical: 'center',
+              horizontal: 'left',
+              wrapText: true,
+            },
+          };
+        }
+      });
+    });
+
+    // 7. Workbook oluştur
+    const workbook: XLSX.WorkBook = {
+      SheetNames: ['Nöbet Listesi'],
+      Sheets: { 'Nöbet Listesi': worksheet },
+    };
+
+    // 8. Excel dosyasını oluştur
+    const excelBuffer: any = XLSX.write(workbook, {
+      bookType: 'xlsx',
+      type: 'array',
+      cellStyles: true,
+    });
+
+    // 9. Dosyayı kaydet
+    this.saveAsExcelFile(excelBuffer, 'Nobet_Listesi');
+  }
+
+  private saveAsExcelFile(buffer: any, fileName: string): void {
+    const data: Blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    saveAs(data, fileName + '.xlsx');
+  }
 
   constructor() {
     const storedPersons = localStorage.getItem('persons');
