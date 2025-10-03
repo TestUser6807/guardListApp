@@ -100,7 +100,15 @@ export class AppComponent {
       const rowIndex = index + 3; // veri 3. satırdan başlıyor
       const row = worksheet.getRow(rowIndex);
 
-      row.getCell(1).value = item.Tarih;
+      const dateParts = item.Tarih.split('.'); // ["01", "10", "2025"]
+      const tarihAsDate = new Date(
+        +dateParts[2],
+        +dateParts[1] - 1,
+        +dateParts[0]
+      );
+      const weekDay = this.getWeekDay(tarihAsDate);
+
+      row.getCell(1).value = `${item.Tarih} (${weekDay})`;
       row.getCell(2).value = item.Atanan;
 
       const personKey = item.Atanan.trim().toLowerCase();
@@ -182,6 +190,7 @@ export class AppComponent {
       label: `${this.formatDate(d)} (${this.getWeekDay(d)})`, // label'a gün ekle
       value: d,
     }));
+
     this.assignDates();
   }
   getWeekDay(date: Date): string {
@@ -208,6 +217,18 @@ export class AppComponent {
   formatDate(date: Date): string {
     return new Intl.DateTimeFormat('tr-TR').format(this.normalizeDate(date));
   }
+  updatePersonDates(): void {
+    const selectedDates = this.dates.map((d) => d.value); // sadece Date değerlerini al
+
+    this.persons.forEach((person) => {
+      person.dates = [...selectedDates]; // her kişiye aynı tarih listesini ata
+    });
+    localStorage.removeItem('persons');
+    localStorage.setItem('persons', JSON.stringify(this.persons));
+
+    this.assignDates();
+  }
+
   openModal(index?: number) {
     if (typeof index === 'number') {
       const person = this.persons[index];

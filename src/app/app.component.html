@@ -60,15 +60,24 @@
           </div>
         </div>
         }
+        <div class="d-flex justify-content-end my-3">
+          <button class="btn btn-success mx-1" (click)="updatePersonDates()">
+            <i class="pi pi-sort me-2"></i> Herkese Tüm Tarihleri Ata
+          </button>
+        </div>
       </div>
     </div>
     <div class="col"></div>
   </div>
   <div class="d-flex justify-content-end my-3" *ngIf="assignedDates.length > 0">
+    <button class="btn btn-warning mx-1" (click)="assignDates()">
+      <i class="pi pi-sync me-2"></i> Karıştır
+    </button>
     <button class="btn btn-success" (click)="exportExcel()">
       <i class="pi pi-file-excel me-2"></i> Excel Olarak İndir
     </button>
   </div>
+
   <p *ngIf="assignedDates.length > 0" class="mt-3 fw-bold">
     Seçilen Tarihler ve Atananlar:
   </p>
@@ -86,7 +95,7 @@
     <tbody>
       <tr *ngFor="let item of assignedDates">
         <td [ngClass]="{ 'bg-danger': item.person === 'Kimse atanmadı' }">
-          {{ item.date | date : "dd.MM.yyyy" }}
+          {{ item.date | date : "dd.MM.yyyy" }} ({{ getWeekDay(item.date) }})
         </td>
         <td [ngClass]="{ 'bg-danger': item.person === 'Kimse atanmadı' }">
           {{ item.person }}

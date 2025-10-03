@@ -4,11 +4,6 @@
   width: 100%;
 }
 
-.modal-content {
-  max-height: 80vh; /* Modal içeriğini ekranın %80'i ile sınırla */
-  overflow-y: auto; /* İçerik taşarsa scroll ekle */
-}
-
 /* PrimeNG multiselect dropdown'un modal dışına taşmasını engelle */
 p-multiSelect {
   width: 100%;
@@ -19,9 +14,4 @@ p-multiSelect {
   max-height: 200px !important; /* Çok fazla seçenek varsa kaydır */
   overflow-y: auto !important;
   z-index: 1055 !important; /* Bootstrap modal ile uyumlu hale getir */
-}
-.p-multiselect-panel {
-  max-height: 200px !important;
-  overflow-y: auto !important;
-  z-index: 1055 !important;
 }
