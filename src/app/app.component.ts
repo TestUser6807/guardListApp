@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { CalendarModule } from 'primeng/calendar';
 import { MultiSelectModule } from 'primeng/multiselect';
 
+import * as ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -25,6 +28,118 @@ export class AppComponent {
   // Güncelleme modları
   isEditing = false;
   editingIndex: number | null = null;
+
+  exportExcel(): void {
+    // 1. Veri hazırlanıyor
+    const worksheetData = this.assignedDates.map((item) => ({
+      Tarih: this.formatDate(item.date),
+      Atanan: item.person,
+    }));
+
+    // 2. En eski ve en yeni tarih
+    const timestamps = this.assignedDates.map((item) =>
+      new Date(item.date).getTime()
+    );
+    const minDate = this.formatDate(new Date(Math.min(...timestamps)));
+    const maxDate = this.formatDate(new Date(Math.max(...timestamps)));
+    const title = `${minDate} - ${maxDate} Nöbet Listesi`;
+
+    // 3. Workbook ve Worksheet oluştur
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Nöbet Listesi');
+
+    // 4. Başlık ekle (A1 ve B1 hücrelerini birleştir)
+    worksheet.mergeCells('A1:B1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = title;
+    titleCell.font = { bold: true, size: 16 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // 5. Sütun başlıklarını ekle (2. satır)
+    worksheet.getRow(2).values = ['Tarih', 'Atanan'];
+    worksheet.getRow(2).font = { bold: true };
+
+    // 6. Kişi isimlerine renk ata
+    const uniquePeople = [
+      ...new Set(
+        this.assignedDates.map((item) => item.person.trim().toLowerCase())
+      ),
+    ];
+    const colorPalette = [
+      'FFB6C1',
+      'ADD8E6',
+      '90EE90',
+      'FFFF99',
+      'FFD700',
+      'FFA07A',
+      'DDA0DD',
+      '00CED1',
+      'F08080',
+      'E0FFFF',
+      'C0C0C0',
+      'FFC0CB',
+      '98FB98',
+      'AFEEEE',
+      'FFFACD',
+      '0046FF',
+      '73C8D2',
+      'F5F1DC',
+      'FF9013',
+      '004030',
+      '4A9782',
+      'DCD0A8',
+      'FFF9E5',
+    ];
+    const personColors: { [key: string]: string } = {};
+    uniquePeople.forEach((person, i) => {
+      personColors[person] = colorPalette[i % colorPalette.length];
+    });
+
+    // 7. Verileri ekle ve satırları renklendir
+    worksheetData.forEach((item, index) => {
+      const rowIndex = index + 3; // veri 3. satırdan başlıyor
+      const row = worksheet.getRow(rowIndex);
+
+      row.getCell(1).value = item.Tarih;
+      row.getCell(2).value = item.Atanan;
+
+      const personKey = item.Atanan.trim().toLowerCase();
+      const fillColor = personColors[personKey];
+
+      // Satırı renklendir
+      row.eachCell((cell) => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: fillColor },
+        };
+        cell.font = {
+          color: { argb: 'FF000000' }, // Siyah yazı
+        };
+        cell.alignment = {
+          vertical: 'middle',
+          horizontal: 'left',
+          wrapText: true,
+        };
+      });
+
+      row.commit();
+    });
+
+    // 8. Sütun genişliklerini ayarla
+    worksheet.columns = [
+      { key: 'Tarih', width: 15 },
+      { key: 'Atanan', width: 25 },
+    ];
+
+    // 9. Dosyayı oluştur ve kaydet
+    workbook.xlsx.writeBuffer().then((buffer) => {
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      saveAs(blob, 'Nobet_Listesi.xlsx');
+    });
+  }
 
   constructor() {
     const storedPersons = localStorage.getItem('persons');
