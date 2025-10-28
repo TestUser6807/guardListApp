@@ -13,6 +13,7 @@
         ></p-calendar>
       </div>
 
+
       <div class="col" *ngIf="dates.length > 0">
         <h4>Kişi Ekle</h4>
         <button class="btn btn-primary" (click)="openModal()">
@@ -22,6 +23,14 @@
     </div>
 
     <div class="d-flex justify-content-end w-100 mt-2">
+       <div class="form-check">
+          <label class="me-2" for="isDayWeightedActive">  Ağarlıkları dahil et </label>
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="isDayWeightedActive"
+            [(ngModel)]="isDayWeightedActive"
+          />
       <button class="btn btn-danger" (click)="reset()">
         <i class="pi pi-refresh me-2"></i> Reset
       </button>
@@ -40,6 +49,7 @@
             <span class="text-muted ms-2"
               >({{ getDutyCount(person.name) }})</span
             >
+            <p>{{ getWeightedCount(person.name) }}</p>
           </div>
 
           <!-- Butonlar -->
