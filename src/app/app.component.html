@@ -3,38 +3,37 @@
     <div class="row">
     <div class="col">
   <h4>Nöbet Tarihlerini Seç</h4>
+    <!-- Eğer ağırlık modu kapalıysa normal çoklu tarih takvimi -->
+      <div *ngIf="!isDayWeightedActive">
+         <p-calendar
+          [(ngModel)]="rawDates"
+          (ngModelChange)="onDatesSelected($event)"
+          selectionMode="multiple"
+          dateFormat="dd.mm.yy"
+          [showIcon]="true"
+          placeholder="Tarihleri seç"
+        ></p-calendar>
+      </div>  
+      
 
-  <!-- Eğer ağırlık modu kapalıysa normal çoklu tarih takvimi -->
+  <!-- Eğer ağırlık modu açıksa ay takvimi -->
    <div *ngIf="isDayWeightedActive">
-  <label for="monthPicker" class="form-label">Ay Seç (Yıl-Ay)</label>
-
-  <!-- Ensure the p-calendar tag is properly closed -->
-  <p-calendar
-    id="monthPicker"
-    [(ngModel)]="selectedMonth"
-    view="month"
-    dateFormat="yyyy-mm"
-    [showIcon]="true"
-    [monthNavigator]="true"
-    [yearNavigator]="true"
-    yearRange="2000:2030"
-  ></p-calendar>
+    <p-calendar
+      id="monthPicker"
+      [(ngModel)]="selectedMonth"
+      (ngModelChange)="onMonthSelected($event)"
+      view="month"
+      dateFormat="yyyy-mm"
+      [showIcon]="true"
+      [monthNavigator]="true"
+      [yearNavigator]="true"
+      yearRange="2000:2030"
+      placeholder="Ay seç"
+    ></p-calendar>
 </div>
 
 
 
-  <!-- Eğer ağırlık modu açıksa sadece ay seçilebilen input göster -->
-  <div *ngIf="isDayWeightedActive">
-    <label for="monthPicker" class="form-label">Ay Seç (Yıl-Ay)</label>
-    <input
-      id="monthPicker"
-      type="month"
-      class="form-control"
-      [(ngModel)]="selectedMonth"
-      (change)="onMonthSelected()"
-    />
-    <small class="text-muted">Seçilen ayın tüm günleri otomatik olarak seçilir (örn. 2025-05 → Mayıs 2025'in tüm günleri).</small>
-  </div>
 </div>
 
 

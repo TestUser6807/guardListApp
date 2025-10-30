@@ -198,10 +198,37 @@ export class AppComponent {
 
     this.assignDates();
   }
-onMonthSelected(event: any) {
-  console.log('Selected Month:', event);
-  // You can perform further logic with the selected date here
-}
+  onMonthSelected(event: any) {
+    console.log('Selected Month:', event);
+
+    // Seçilen tarihten yıl ve ay bilgisini alalım
+    const selectedDate = event;
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth(); // 0 bazlı olduğu için (0 = Ocak, 11 = Aralık)
+    
+    // Ayın ilk ve son gününü bulalım
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0); // Sonraki ayın 0. günü bir önceki ayın son günü
+
+    // Ay içindeki tüm günleri oluşturma
+    const allDaysInMonth: Date[] = [];
+    let currentDate = firstDayOfMonth;
+
+    while (currentDate <= lastDayOfMonth) {
+      allDaysInMonth.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1); // Sonraki gün
+    }
+
+    // rawDates'ı güncelleme
+    this.rawDates = allDaysInMonth.sort((a, b) => a.getTime() - b.getTime()); // Tarihleri sırala
+
+    // dates dizisini güncelleme
+    this.dates = this.rawDates.map((d) => ({
+      label: `${this.formatDate(d)} (${this.getWeekDay(d)})`, // Label'a gün ekle
+      value: d,
+    }));
+  }
+
 
   getWeekDay(date: Date): string {
     const days = [
