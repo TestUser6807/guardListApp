@@ -18,6 +18,7 @@ import { saveAs } from 'file-saver';
 export class AppComponent {
   rawDates: Date[] = [];
   dates: { label: string; value: Date }[] = [];
+  selectedMonth: Date = new Date();
   selectedPersonDates: { label: string; value: Date }[] = [];
   selectAll = true;
   showModal = false;
@@ -197,6 +198,11 @@ export class AppComponent {
 
     this.assignDates();
   }
+onMonthSelected(event: any) {
+  console.log('Selected Month:', event);
+  // You can perform further logic with the selected date here
+}
+
   getWeekDay(date: Date): string {
     const days = [
       'Pazar',
@@ -224,22 +230,38 @@ export class AppComponent {
     return totalWeight;
   }
 
-
-  normalizeDate(date: Date): Date {
+normalizeDate(date: Date): Date {
+  if (date instanceof Date && !isNaN(date.getTime())) {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
   }
+  return new Date(NaN);
+}
+
 
   formatDate(date: Date): string {
     return new Intl.DateTimeFormat('tr-TR').format(this.normalizeDate(date));
   }
-  updatePersonDates(): void {
-    const selectedDates = this.dates.map((d) => d.value); // sadece Date değerlerini al
+updatePersonDates(): void {
+    // Normalize ve geçersizleri temizle
+    const selectedDates: Date[] = this.dates
+      .map((d) => this.normalizeDate(d.value))
+      .filter((dt) => dt instanceof Date && !isNaN(dt.getTime()));
 
-    this.persons.forEach((person) => {
-      person.dates = [...selectedDates]; // her kişiye aynı tarih listesini ata
-    });
-    localStorage.removeItem('persons');
-    localStorage.setItem('persons', JSON.stringify(this.persons));
+    // Eğer hiç geçerli tarih yoksa hiçbir değişiklik yapma
+    if (selectedDates.length === 0) return;
+
+    // Her kişiye ayrı kopya ver (referans paylaşımı olmasın)
+    this.persons = this.persons.map((person) => ({
+      ...person,
+      dates: selectedDates.map((d) => new Date(d.getTime())),
+    }));
+
+    // localStorage'a ISO string olarak yaz (constructor ile uyumlu parsing için)
+    const toStore = this.persons.map((p) => ({
+      name: p.name,
+      dates: p.dates.map((d) => d.toISOString()),
+    }));
+    localStorage.setItem('persons', JSON.stringify(toStore));
 
     this.assignDates();
   }
@@ -353,95 +375,198 @@ export class AppComponent {
   // }
   //TODO fixed
 assignDates() {
-  const assignments: { date: Date; person: string }[] = [];
-  const personCounts: { [key: string]: number } = {}; // Normal nöbet sayıları
-  const weightCounts: { [key: string]: number } = {}; // Ağırlıklı nöbet sayıları
-  const totalDays = this.rawDates.length;
-  const numPersons = this.persons.length;
+  const MAX_ATTEMPTS = 500;
 
-  const sortedDates = this.rawDates
-    .slice()
-    .sort((a, b) => a.getTime() - b.getTime());
+  const normalizeDateStr = (d: Date) =>
+    this.normalizeDate(new Date(d)).toDateString();
 
-  // Başlangıçta her kişinin nöbet ve ağırlıklı nöbet sayısı sıfır
-  this.persons.forEach((p) => {
-    personCounts[p.name] = 0; // Normal nöbet sayısı
-    weightCounts[p.name] = 0; // Ağırlıklı nöbet sayısı
-  });
+  const makeAttempt = () => {
+    const assignments: { date: Date; person: string }[] = [];
+    const personCounts: { [key: string]: number } = {};
+    const weightCounts: { [key: string]: number } = {};
+    const personWeekdayAssigned: { [person: string]: { [day: number]: number } } = {};
 
-  // 1. Ortalamayı Hesapla
-  const totalWeight = this.rawDates.reduce(
-    (sum, date) => sum + this.dayWeight[date.getDay()],
-    0
-  ); // Toplam ağırlıklı gün sayısını hesapla
-
-  const avgDutyCount = totalDays / numPersons;  // Ortalama nöbet sayısı (her kişi için)
-  const avgWeightedCount = totalWeight / numPersons;  // Ortalama ağırlıklı nöbet sayısı (her kişi için)
-
-  console.log('Avg Duty Count:', avgDutyCount);  // Ortalama nöbet sayısı
-  console.log('Avg Weighted Count:', avgWeightedCount);  // Ortalama ağırlıklı nöbet sayısı
-
-  // 2. Nöbet Atama İşlemi
-  for (let i = 0; i < sortedDates.length; i++) {
-    const date = sortedDates[i];
-    const dayOfWeek = date.getDay(); // 0: Pazar, 1: Pazartesi, ... 6: Cumartesi
-    const dayWeightValue = this.dayWeight[dayOfWeek];
-
-    // Atama yapılabilecek kişileri filtrele
-    const available = this.persons.filter((p) =>
-      p.dates.some((d) => new Date(d).toDateString() === date.toDateString())
-    );
-
-    // Önceki gün atanmış kişi varsa, onu çıkar
-    const previousAssignment = assignments[i - 1];
-    let filtered = available;
-
-    if (previousAssignment) {
-      filtered = available.filter((p) => p.name !== previousAssignment.person);
+    const totalDays = this.rawDates.length;
+    const numPersons = this.persons.length;
+    if (numPersons === 0 || totalDays === 0) {
+      this.assignedDates = [];
+      localStorage.setItem('assignedDates', JSON.stringify(this.assignedDates));
+      return { success: true, assignments };
     }
 
-    if (filtered.length > 0) {
-      // Ağırlıklı atama
-      const minCount = Math.min(...filtered.map((p) => personCounts[p.name]));
+    const sortedDates = this.rawDates.slice().sort((a, b) => a.getTime() - b.getTime());
 
-      // Ağırlıklı nöbet sayısına bakarak en uygun adayı seç
-      const candidates = filtered.filter(
-        (p) => personCounts[p.name] === minCount
+    // Başlangıç sayaçları
+    this.persons.forEach((p) => {
+      personCounts[p.name] = 0;
+      weightCounts[p.name] = 0;
+      personWeekdayAssigned[p.name] = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+    });
+
+    // Ortalamalar
+    const totalWeight = sortedDates.reduce((s, dt) => s + this.dayWeight[dt.getDay()], 0);
+    const avgDutyCount = totalDays / numPersons;
+    const avgWeightedCount = totalWeight / numPersons;
+
+    const allowedMinDuty = Math.max(0, Math.floor(avgDutyCount) - 1);
+    const allowedMaxDuty = Math.ceil(avgDutyCount) + 1;
+    const allowedMinWeighted = avgWeightedCount - 0.5;
+    const allowedMaxWeighted = avgWeightedCount + 0.5;
+
+    // Gün başına tarih listesi ve toplam sayıları
+    const dayDates: { [day: number]: Date[] } = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+    sortedDates.forEach((d) => dayDates[d.getDay()].push(d));
+
+    // Her gün için kişiler arasında hedef dağılımı (eşit ve rastgele)
+    const targetsByDay: { [day: number]: { [person: string]: number } } = {};
+    for (let day = 0; day < 7; day++) {
+      const count = dayDates[day].length;
+      const base = Math.floor(count / numPersons);
+      let remainder = count % numPersons;
+
+      const shuffled = this.persons.map((p) => p.name).sort(() => Math.random() - 0.5);
+      targetsByDay[day] = {};
+      this.persons.forEach((p) => (targetsByDay[day][p.name] = base));
+      for (let r = 0; r < remainder; r++) {
+        targetsByDay[day][shuffled[r]]++;
+      }
+    }
+
+    // Atama döngüsü: tarihler sırayla atanıyor
+    for (let i = 0; i < sortedDates.length; i++) {
+      const date = sortedDates[i];
+      const day = date.getDay();
+      const dayWeightValue = this.dayWeight[day];
+      const prev = assignments[i - 1];
+
+      // Eligible: o tarihte müsait olan kişiler
+      let eligible = this.persons.filter((p) =>
+        p.dates.some((pd) => normalizeDateStr(pd) === normalizeDateStr(date))
       );
 
-      // Ağırlıklı nöbet sayısı da göz önünde bulundurularak, en iyi adayı seç
-      const minWeightedCount = Math.min(
-        ...candidates.map((p) => weightCounts[p.name] + dayWeightValue)
-      );
+      // Önceki gün atanmış kişiyi çıkar
+      if (prev) {
+        eligible = eligible.filter((p) => p.name !== prev.person);
+      }
 
-      const matches = candidates.filter(
-        (p) => weightCounts[p.name] + dayWeightValue === minWeightedCount
-      );
+      // Eğer eligible boşsa direkt 'Kimse atanmadı'
+      if (eligible.length === 0) {
+        assignments.push({ date, person: 'Kimse atanmadı' });
+        continue;
+      }
 
-      // Seçim yaparken çok sıkı kontrol yapmıyoruz
-      const chosen = matches[Math.floor(Math.random() * matches.length)];
+      // Mevcut en düşük nöbet sayısını al; böylece hiçbir kişi diğerlerinden 2 fazla olamaz
+      const currentMinCount = Math.min(...Object.values(personCounts));
+      // Bir kişinin alabileceği en yüksek nöbet sayısı (hem avg sınırı hem de diğerlerine göre fark)
+      const dynamicMaxDuty = Math.min(allowedMaxDuty, currentMinCount + 1);
 
-      // Kişinin nöbet sayısını güncelle
-      personCounts[chosen.name]++;
-      weightCounts[chosen.name] += dayWeightValue; // Ağırlıklı nöbet sayısını artır
-      assignments.push({ date, person: chosen.name });
-    } else {
-      // Kimse atanamıyorsa
-      assignments.push({ date, person: 'Kimse atanmadı' });
+      // Filtreleme aşamaları: önce tüm kısıtlarla, sonra kademeli gevşet
+      const tryFilters = [
+        // 1) tam kısıtlar: weekday hedefi aşmasın, duty <= dynamicMaxDuty, weighted <= allowedMaxWeighted
+        (pname: string) =>
+          personWeekdayAssigned[pname][day] < targetsByDay[day][pname] &&
+          personCounts[pname] + 1 <= dynamicMaxDuty &&
+          weightCounts[pname] + dayWeightValue <= allowedMaxWeighted,
+        // 2) izin verilen weekday hedefini gevşet (sadece duty ve weighted kontrol)
+        (pname: string) =>
+          personCounts[pname] + 1 <= dynamicMaxDuty &&
+          weightCounts[pname] + dayWeightValue <= allowedMaxWeighted,
+        // 3) sadece duty limit kontrolü (farkı koruyacak şekilde)
+        (pname: string) => personCounts[pname] + 1 <= dynamicMaxDuty,
+        // 4) sadece weighted limit kontrolü
+        (pname: string) => weightCounts[pname] + dayWeightValue <= allowedMaxWeighted,
+        // 5) hiçbir limit (ama önceki gün kontrolü halen sağlanıyor)
+        (_pname: string) => true,
+      ];
+
+      let chosenName: string | null = null;
+      for (const filter of tryFilters) {
+        const candidates = eligible
+          .map((p) => p.name)
+          .filter((pn) => filter(pn));
+        if (candidates.length === 0) continue;
+
+        // En az assignment/weighted olanları öne al, sonra rastgele seç
+        candidates.sort((a, b) => {
+          const va = personCounts[a] + weightCounts[a];
+          const vb = personCounts[b] + weightCounts[b];
+          if (va !== vb) return va - vb;
+          return Math.random() - 0.5;
+        });
+
+        chosenName = candidates[0];
+        break;
+      }
+
+      if (!chosenName) {
+        assignments.push({ date, person: 'Kimse atanmadı' });
+        continue;
+      }
+
+      // Atamayı kaydet
+      personCounts[chosenName]++;
+      weightCounts[chosenName] += dayWeightValue;
+      personWeekdayAssigned[chosenName][day]++;
+      assignments.push({ date, person: chosenName });
+    }
+
+    // Son kontrol: herkes izin verilen aralıkta mı?
+    let ok = true;
+    const counts = this.persons.map(p => personCounts[p.name]);
+    const maxCount = Math.max(...counts);
+    const minCount = Math.min(...counts);
+
+    // 1) duty sınırları ve aralarındaki fark (biri 4 diğer 6 olamaz)
+    for (const p of this.persons) {
+      const c = personCounts[p.name];
+      if (c < allowedMinDuty || c > allowedMaxDuty) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok && (maxCount - minCount) > 1) ok = false;
+
+    // 2) weighted sınırları
+    if (ok) {
+      for (const p of this.persons) {
+        const w = weightCounts[p.name];
+        if (w < allowedMinWeighted - 1e-9 || w > allowedMaxWeighted + 1e-9) {
+          ok = false;
+          break;
+        }
+      }
+    }
+
+    // 3) ardışık gün kontrolü (Kimse atanmadı hariç)
+    if (ok) {
+      for (let i = 1; i < assignments.length; i++) {
+        const prev = assignments[i - 1];
+        const cur = assignments[i];
+        if (prev.person !== 'Kimse atanmadı' && cur.person !== 'Kimse atanmadı' && prev.person === cur.person) {
+          ok = false;
+          break;
+        }
+      }
+    }
+
+    return { success: ok, assignments, personCounts, weightCounts };
+  };
+
+  // Tekrarlamalı denemeler
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const result = makeAttempt();
+    if (result.success) {
+      this.assignedDates = result.assignments;
+      localStorage.setItem('assignedDates', JSON.stringify(this.assignedDates));
+      console.log(`assignDates succeeded on attempt ${attempt}`);
+      return;
     }
   }
 
-  this.assignedDates = assignments;
-  localStorage.setItem('assignedDates', JSON.stringify(assignments));
-
-  // Kişilerin toplam nöbet sayıları ve ağırlıklı nöbet sayıları yazdırılırsa kontrol edilebilir.
-  console.log('Person Counts:', personCounts);
-  console.log('Weight Counts:', weightCounts);
+  // Eğer tüm denemeler başarısızsa, en son denemeyi kabul et (kullanıcıya uyarı)
+  const last = makeAttempt();
+  this.assignedDates = last.assignments;
+  localStorage.setItem('assignedDates', JSON.stringify(this.assignedDates));
+  console.warn('assignDates: constraints could not be fully satisfied within attempt limit. Final assignments saved.');
 }
-
-
-
-
-
-
 }
