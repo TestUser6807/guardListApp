@@ -2,26 +2,12 @@
   <div class="card p-2">
     <div class="row">
     <div class="col">
-  <h4>Nöbet Tarihlerini Seç</h4>
-    <!-- Eğer ağırlık modu kapalıysa normal çoklu tarih takvimi -->
-      <div *ngIf="!isDayWeightedActive">
-         <p-calendar
-          [(ngModel)]="rawDates"
-          (ngModelChange)="onDatesSelected($event)"
-          selectionMode="multiple"
-          dateFormat="dd.mm.yy"
-          [showIcon]="true"
-          placeholder="Tarihleri seç"
-        ></p-calendar>
-      </div>  
-      
-
-  <!-- Eğer ağırlık modu açıksa ay takvimi -->
-   <div *ngIf="isDayWeightedActive">
+  <h4>Nöbet Tutulacak Tarihlerini Seç</h4>
+   <div>
     <p-calendar
       id="monthPicker"
       [(ngModel)]="selectedMonth"
-      (ngModelChange)="onMonthSelected($event)"
+      (ngModelChange)="onDutyDaySelected($event)"
       view="month"
       dateFormat="yyyy-mm"
       [showIcon]="true"
@@ -32,31 +18,20 @@
     ></p-calendar>
 </div>
 
-
-
 </div>
-
-
-      <div class="col" *ngIf="dates.length > 0">
+      <div class="col" *ngIf="dutyDays.length > 0">
         <h4>Kişi Ekle</h4>
-        <button class="btn btn-primary" (click)="openModal()">
+        <button class="btn btn-primary" (click)="openCreateModel()">
           <i class="pi pi-user me-2"></i> Kişi Ekle
         </button>
       </div>
     </div>
 
     <div class="d-flex justify-content-end w-100 mt-2">
-       <div class="form-check">
-          <label class="me-2" for="isDayWeightedActive">  Ağarlıkları dahil et </label>
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="isDayWeightedActive"
-            [(ngModel)]="isDayWeightedActive"
-          />
-      <button class="btn btn-danger" (click)="reset()">
-        <i class="pi pi-refresh me-2"></i> Reset
-      </button>
+       <div class="form-check">       
+        <button class="btn btn-danger" (click)="reset()">
+          <i class="pi pi-refresh me-2"></i> Reset
+        </button>
     </div>
   </div>
   <div class="row mt-1">
@@ -70,16 +45,16 @@
           <div class="fs-5">
             {{ person.name }}
             <span class="text-muted ms-2"
-              >({{ getDutyCount(person.name) }})</span
+              >({{ person.dutyDayCount }})</span
             >
-            <p>{{ getWeightedCount(person.name) }}</p>
+            <p>{{ person.dutyDayWeight }}</p>
           </div>
 
           <!-- Butonlar -->
           <div>
             <button
               class="btn btn-outline-warning me-2"
-              (click)="openModal($index)"
+              (click)="openEditModal(person)"
               title="Güncelle"
             >
               <i class="pi pi-pencil me-1"></i> Güncelle
@@ -87,7 +62,7 @@
 
             <button
               class="btn btn-outline-danger"
-              (click)="removePerson(person)"
+              (click)="removePerson(person.id)"
               title="Sil"
             >
               <i class="pi pi-trash me-1"></i> Sil
@@ -96,9 +71,12 @@
         </div>
         }
         <div class="d-flex justify-content-end my-3">
-          <button class="btn btn-success mx-1" (click)="updatePersonDates()">
-            <i class="pi pi-sort me-2"></i> Herkese Tüm Tarihleri Ata
-          </button>
+            <button class="btn btn-success mx-1" (click)="resetAllPersonNotAvailableDays()">
+              <i class="pi pi-sort me-2"></i> Herkese Tüm Tarihleri Ata
+            </button>
+           <button class="btn btn-danger mx-1" (click)="removeAllPerson()">
+            <i class="pi pi-trash me-2"></i> Tümünü Sil
+          </button> 
         </div>
       </div>
     </div>
@@ -129,11 +107,11 @@
     </thead>
     <tbody>
       <tr *ngFor="let item of assignedDates">
-        <td [ngClass]="{ 'bg-danger': item.person === 'Kimse atanmadı' }">
-          {{ item.date | date : "dd.MM.yyyy" }} ({{ getWeekDay(item.date) }})
+        <td [ngClass]="{ 'bg-danger': item.assignedDate }">
+          {{ item.assignedDate  }})
         </td>
-        <td [ngClass]="{ 'bg-danger': item.person === 'Kimse atanmadı' }">
-          {{ item.person }}
+        <td [ngClass]="{ 'bg-danger': item.personId === 'Kimse atanmadı' }">
+          {{ item.assignedDate }}
         </td>
       </tr>
     </tbody>
@@ -155,14 +133,14 @@
       </h5>
       <div class="form-group mb-2">
         <label>İsim</label>
-        <input type="text" class="form-control" [(ngModel)]="personName" />
+        <input type="text" class="form-control" [(ngModel)]="selectedPerson.name" />
       </div>
 
       <div class="form-group mb-2">
-        <label class="d-block mb-1">Seçilebilir Nöbet Tarihleri</label>
+        <label class="d-block mb-1">Atanamaz Nöbet Tarihleri</label>
         <p-multiSelect
-          [options]="dates"
-          [(ngModel)]="selectedPersonDates"
+          [options]="dutyDays"
+          [(ngModel)]="selectedPerson.notAvailableDays"
           optionLabel="label"
           display="chip"
           placeholder="Tarihleri Seç"
