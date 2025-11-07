@@ -107,11 +107,11 @@
     </thead>
     <tbody>
       <tr *ngFor="let item of assignedDates">
-        <td [ngClass]="{ 'bg-danger': item.assignedDate }">
-          {{ item.assignedDate  }})
+        <td [ngClass]="{ 'bg-danger': item.personId === 'Kimse atanmadı' }">
+          {{ item.assignedDate | date: 'dd/MM/yyyy' }}
         </td>
         <td [ngClass]="{ 'bg-danger': item.personId === 'Kimse atanmadı' }">
-          {{ item.assignedDate }}
+          {{ item.personName  }}
         </td>
       </tr>
     </tbody>
