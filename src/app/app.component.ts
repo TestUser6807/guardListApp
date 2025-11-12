@@ -19,7 +19,7 @@ import { AssignedDateModel } from './assigned-date.model';
 })
 export class AppComponent {
   dutyDays: { label: string; value: Date }[] = [];
-  selectedMonth: Date = new Date();
+  selectedMonth: Date | undefined = undefined;
   showModal = false;
   selectedPerson: PersonModel = new PersonModel(uuid.v4(), '', []);
   persons: PersonModel[] = []; 
@@ -27,8 +27,9 @@ export class AppComponent {
   dayWeight:number[]= [1.5,1, 1, 1, 0.75, 1.25, 2]; //pazardan cumartesiye gün ağırlıkları
   isEditing = false;
   dutyDayCountTolerance = 1; // Ortalama nöbet sayısına ek olarak izin verilen maksimum nöbet sayısı farkı  
-  dutyDayWeightTolerance = 0.5; // Ortalama nöbet ağırlığına ek olarak izin verilen maksimum nöbet ağırlığı farkı 
-  // TODO use json database 
+  dutyDayWeightTolerance = 1; // Ortalama nöbet ağırlığına ek olarak izin verilen maksimum nöbet ağırlığı farkı 
+  numberOfCycles = 5;
+  // TODO use json or sqlite database 
   constructor() {
     const storedPersons = localStorage.getItem('persons');
     if (storedPersons && Array.isArray(storedPersons)) {
@@ -52,9 +53,10 @@ export class AppComponent {
 
     const storedAssignments = localStorage.getItem('assignedDates');
     if (storedAssignments) {
-      this.assignedDates = JSON.parse(storedAssignments).map((item: any) => ({
-        date: new Date(item.date),
-        person: item.person,
+      this.assignedDates = JSON.parse(storedAssignments).map((item: AssignedDateModel) => ({
+        assignedDate: new Date(item.assignedDate),
+        personName: item.personName,
+        personId: item.personId
       }));
     }
 
@@ -77,7 +79,7 @@ export class AppComponent {
       p.notAvailableDays = [];
     });
     localStorage.setItem('persons', JSON.stringify(this.persons));
-
+    this.selectedMonth = undefined;
   }
   onDutyDaySelected(event: Date) {
     const selectedMonth = event.getMonth(); // Seçilen ay (0-11 arası)
@@ -135,16 +137,24 @@ export class AppComponent {
       this.persons.push(person);
     }
     this.selectedPerson = person;
-    localStorage.setItem('persons', JSON.stringify(this.persons));
-
-    this.assignDates();
+    this.resetDuty();
+    this.assignDates();   
     this.closeModal();
+  }
+  resetDuty(){
+    localStorage.removeItem('assignedDates');
+    this.assignedDates = [];
+    this.persons.forEach((p) => {
+      p.dutyDays = [];
+    });
+    localStorage.setItem('persons', JSON.stringify(this.persons));
   }
   removePerson(id: string) {
     const personIndex = this.persons.findIndex((p:PersonModel) => p.id === id);
     if (personIndex > -1) {
       this.persons.splice(personIndex, 1);
       localStorage.setItem('persons', JSON.stringify(this.persons));
+      this.resetDuty();
       this.assignDates();
     }
   }
@@ -161,13 +171,28 @@ export class AppComponent {
     localStorage.setItem('persons', JSON.stringify(this.persons));
     this.assignDates();
   }
+  mix(){
+    const unassignedDates = this.assignedDates.filter((date: AssignedDateModel) => {
+      return date.personId == 'Kimse atanmadı';
+    });
+    this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates);
+  }
+  resetAssignDates(){
+    this.mix();
+    this.assignDates();
+  }
   assignDates() {
-    this.dutyDays.forEach((dutyDay) => {
-      this.persons.forEach((person) => {
+      let personIndex = 0;
+
+      this.sortPersonsByDutyDaysCountAndDutyWeight();
+      this.sortDutyDaysByWeight();
+      this.dutyDays.forEach((dutyDay) => {
+        const person = this.persons[personIndex];
         if(this.userMustNotWorkTwoConsecutiveDays(person, dutyDay.value) &&
           this.userMustBeAvailable(person, dutyDay.value) &&
           this.noMoreThanTheAverageNumberOfDutysAreWorked(person) &&
-          this.noMoreThanTheAverageNumberOfDutysWeightAreWorked(person) 
+          this.noMoreThanTheAverageNumberOfDutysWeightAreWorked(person) &&
+          this.userMustNotWorkMoreThanOneShiftOnSameDay(person, dutyDay.value)
         ) {
           person.dutyDays = person.dutyDays || [];
           // Bu tarih daha önce atanmış mı kontrol et, atanmışsa eskiyi sil
@@ -182,20 +207,70 @@ export class AppComponent {
                   }
               });
           }
-          // Todo gelişti  Atama yap
+    
           person.dutyDays.push(dutyDay.value);
           localStorage.setItem('persons', JSON.stringify(this.persons));
           return;
         }
-      });
-    });
-    this.setAssignedDates();
-  }
 
+        // Person index'ini döngüsel şekilde güncelle
+        const userHaveMoreNotAvailableDays = this.persons?.find((p) => {
+            return p.notAvailableDays.length > this.dutyDays.length / 2;
+          });
+
+          if (userHaveMoreNotAvailableDays !== undefined &&
+              this.userMustNotWorkTwoConsecutiveDays(person, dutyDay.value) &&
+              this.userMustBeAvailable(person, dutyDay.value) &&
+              this.noMoreThanTheAverageNumberOfDutysAreWorked(person) &&
+              this.noMoreThanTheAverageNumberOfDutysWeightAreWorked(person)) {
+            // Eğer nöbet tutabilecek günü az biri var ise ona tekrar nöbet verilir
+            personIndex = this.persons.indexOf(userHaveMoreNotAvailableDays);
+          } else {
+            // Eğer personIndex, persons.length'ten büyükse sıfırlanır
+            personIndex = (personIndex + 1) % this.persons.length; 
+          }
+      });
+
+      // Nöbet tutulan tarihleri assignedDates'e set et
+      this.setAssignedDates();
+
+      // Atanamayan tarih varsa ata
+      let unassignedDates = this.assignedDates.filter((date: AssignedDateModel) => {
+        return date.personId == 'Kimse atanmadı';
+      });
+      
+      if(unassignedDates.length >0)
+      {
+        for(let i = 0; i<this.numberOfCycles; i++){
+          this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates);
+        }
+      }
+  }
+  assignShiftsToDaysWithoutAssignedShifts(unassignedDates:AssignedDateModel[]){
+    if(unassignedDates.length >0) {
+       // kimseye atanmamış tarihleri sırala
+      unassignedDates.sort((a,b)=>this.dayWeight[b.assignedDate.getDate()] - this.dayWeight[a.assignedDate.getDate()] );
+
+      unassignedDates.forEach(dutyDay => {
+        // Kişileri nöbet sayısı ve nöbet ağarlığına göre sırala
+        this.sortPersonsByDutyDaysCountAndDutyWeight();
+        // En düşük güne ve yüke sahip olan kişiyi al O kişiye dutyDay ekle
+        const assignedPerson = this.persons[0];
+        assignedPerson.dutyDays = assignedPerson.dutyDays || [];
+        if(
+          this.userMustNotWorkTwoConsecutiveDays(assignedPerson, dutyDay.assignedDate) &&
+          this.userMustBeAvailable(assignedPerson, dutyDay.assignedDate)
+        )
+          assignedPerson.dutyDays.push(dutyDay.assignedDate);
+          this.setAssignedDates();
+          localStorage.setItem('persons', JSON.stringify(this.persons));
+      });
+      
+    }
+  }
   noMoreThanTheAverageNumberOfDutysAreWorked(person: PersonModel): boolean {
     const averageCountPerPerson = this.dutyDays.length / this.persons.length;
-
-    if(person.dutyDayCount > averageCountPerPerson + this.dutyDayCountTolerance)
+    if(person.dutyDayCount + this.dutyDayCountTolerance > averageCountPerPerson)
       return false;
 
     return true;
@@ -206,7 +281,7 @@ export class AppComponent {
       const dayOfWeek = dutyDay.value.getDay();
       return sum + this.dayWeight[dayOfWeek];
     }, 0);
-
+    console.log('Total Weight:', totalWeight);
     // Ortalama ağırlığı hesapla
     const averageWeightPerPerson = totalWeight / this.persons.length;
 
@@ -217,29 +292,35 @@ export class AppComponent {
     }, 0) || 0;
 
     // Eğer person'un ağırlığı, ortalamadan tolerans kadar büyükse, false döndür
-    return (personWeight < (averageWeightPerPerson + this.dutyDayWeightTolerance));
+    return (personWeight + this.dutyDayWeightTolerance  < averageWeightPerPerson);
   }
-
-
   userMustNotWorkTwoConsecutiveDays(person: PersonModel, date: Date): boolean {
-    const previousDay = new Date(date);
-    previousDay.setDate(date.getDate() - 1);
+      const previousDay = new Date(date);
+      previousDay.setDate(date.getDate() - 1);
 
-    if (person.dutyDays) {
-      const isPreviousDayWorked = person.dutyDays.some(dutyDate => {
-        return (
-          dutyDate.getFullYear() === previousDay.getFullYear() &&
-          dutyDate.getMonth() === previousDay.getMonth() &&
-          dutyDate.getDate() === previousDay.getDate()
+      const nextDay = new Date(date);
+      nextDay.setDate(date.getDate() + 1);
+
+      if(person.dutyDays){
+        // Önceki ve sonraki günlerde nöbet tutmuş mu kontrol et
+        const isPreviousDayWorked = person.dutyDays.some(dutyDate => 
+            dutyDate.getFullYear() === previousDay.getFullYear() &&
+            dutyDate.getMonth() === previousDay.getMonth() &&
+            dutyDate.getDate() === previousDay.getDate()
         );
-      });
 
-      if (isPreviousDayWorked) {
-        return false;
+        const isNextDayWorked = person.dutyDays.some(dutyDate => 
+            dutyDate.getFullYear() === nextDay.getFullYear() &&
+            dutyDate.getMonth() === nextDay.getMonth() &&
+            dutyDate.getDate() === nextDay.getDate()
+        );
+        // Eğer önceki veya sonraki gün çalıştıysa, ardışık nöbet engellenir
+        if (isPreviousDayWorked || isNextDayWorked) {
+            return false;
+        }
       }
-    }
-
-    return true;
+      
+      return true;
   }
   userMustBeAvailable(person:PersonModel, date:Date): boolean {
     if(person.notAvailableDays)
@@ -257,7 +338,30 @@ export class AppComponent {
     }
     return true;
   }
-
+  userMustNotWorkMoreThanOneShiftOnSameDay(person: PersonModel, date: Date): boolean {
+    const dayOfWeek = date.getDay();
+    const shiftsOnSameDay = person.dutyDays?.findIndex(dutyDate => dutyDate.getDay() === dayOfWeek) || [];
+    return shiftsOnSameDay == -1;
+  }
+  sortPersonsByDutyDaysCountAndDutyWeight() {
+    this.persons.sort((a, b) => {
+      // İlk olarak dutyDayCount'a göre sıralama yap
+      if (a.dutyDayCount !== b.dutyDayCount) {
+        return a.dutyDayCount - b.dutyDayCount;
+      }
+      
+      // Eğer dutyDayCount'lar eşitse, dutyDayWeight'e göre sıralama yap
+      const aWeight = a.dutyDays?.reduce((sum, dutyDate) => sum + this.dayWeight[dutyDate.getDay()], 0) || 0;
+      const bWeight = b.dutyDays?.reduce((sum, dutyDate) => sum + this.dayWeight[dutyDate.getDay()], 0) || 0;
+      
+      return aWeight - bWeight;  // Küçükten büyüğe sıralama
+    });
+  }
+  sortDutyDaysByWeight(){
+    this.dutyDays.sort((a,b)=>{
+      return this.dayWeight[b.value.getDay()] - this.dayWeight[a.value.getDay()];  
+    })
+  }
   setAssignedDates() {
     this.assignedDates = []; // Öncelikle assignedDates dizisini sıfırlıyoruz.
 
