@@ -60,13 +60,15 @@ export class AppComponent {
       }));
     }
 
-    const storedDutyDays = localStorage.getItem('dutyDays');
-    if (storedDutyDays) {
-      this.dutyDays = JSON.parse(storedDutyDays).map((item: any) => ({
-        label: item.label,
-        value: new Date(item.value),
-      }));
-    }
+   const storedDutyDays = localStorage.getItem('dutyDays');
+   if (storedDutyDays) {
+    this.dutyDays = JSON.parse(storedDutyDays).map((item: any) => ({
+    label: item.label,
+    value: new Date(item.value),
+   }));
+}
+
+
   }
   reset() {
     localStorage.removeItem('assignedDates');
@@ -93,12 +95,19 @@ export class AppComponent {
     this.dutyDays = [];
     for (let day = firstDayOfMonth; day <= lastDayOfMonth; day.setDate(day.getDate() + 1)) {
       this.dutyDays.push({
-        label: this.formatDate(day), // Günün etiketini (tarih formatı) oluşturuyoruz
+        label: `${this.formatDate(day)} (${this.getWeekDay(day)})`, // Günün etiketini (tarih formatı) oluşturuyoruz
         value: new Date(day) // Günün tarihini değere atıyoruz
       });
     }
     localStorage.setItem('dutyDays', JSON.stringify(this.dutyDays));
-    this.resetAllPersonNotAvailableDays();
+    localStorage.removeItem('assignedDates');
+    this.assignedDates = [];
+    this.persons.forEach((p) => {
+      p.notAvailableDays = [];
+      p.dutyDays = [];
+    });
+    localStorage.setItem('persons', JSON.stringify(this.persons));
+    this.assignDates();
   }
   openEditModal(person:PersonModel) {
     this.isEditing = true;
@@ -172,19 +181,16 @@ export class AppComponent {
     this.assignDates();
   }
   tryAssign(){
-    const unassignedDates = this.assignedDates.filter((date: AssignedDateModel) => {
-      return date.personId == 'Kimse atanmadı';
-    });
+    const unassignedDates = this.assignedDates.filter(d => d.personId == 'Kimse atanmadı');
     this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates);
   }
   resetAssignDates(){
     this.resetDuty();
-    const startIndex = Math.floor(Math.random()*this.persons.length)
-    this.assignDates(startIndex);
+    this.assignDates();
     this.tryAssign();
   }
-  assignDates(startIndex?:number) {
-      let personIndex = startIndex ?? 0;
+  assignDates() {
+      let personIndex = 0;
 
       this.sortPersonsByDutyDaysCountAndDutyWeight();
       this.sortDutyDaysByWeight();
@@ -237,13 +243,13 @@ export class AppComponent {
       this.setAssignedDates();
 
       // Atanamayan tarih varsa ata
-      let unassignedDates = this.assignedDates.filter((date: AssignedDateModel) => {
-        return date.personId == 'Kimse atanmadı';
-      });
-      
+     
+      let unassignedDates = this.assignedDates.filter(d => d.personId == 'Kimse atanmadı');
+
       if(unassignedDates.length >0)
       {
         for(let i = 0; i<this.numberOfCycles; i++){
+          unassignedDates = this.assignedDates.filter(d => d.personId == 'Kimse atanmadı');
           this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates);
         }
       }
@@ -261,7 +267,8 @@ export class AppComponent {
         assignedPerson.dutyDays = assignedPerson.dutyDays || [];
         if(
           this.userMustNotWorkTwoConsecutiveDays(assignedPerson, dutyDay.assignedDate) &&
-          this.userMustBeAvailable(assignedPerson, dutyDay.assignedDate)
+          this.userMustBeAvailable(assignedPerson, dutyDay.assignedDate) &&
+          !assignedPerson.dutyDays.some(d => d.getTime() === dutyDay.assignedDate.getTime())
         )
           assignedPerson.dutyDays.push(dutyDay.assignedDate);
           this.setAssignedDates();
@@ -429,6 +436,12 @@ export class AppComponent {
     const year = date.getFullYear();
     return `${day}.${month}.${year}`;
   }
+  get sortedDutyDays() {
+    return this.dutyDays
+      .slice() // orijinal diziyi kopyala (immutability)
+      .sort((a, b) => a.value.getTime() - b.value.getTime());
+  }
+
   exportExcel(): void {
     // 1. Veri hazırlanıyor
     const worksheetData = this.assignedDates.map((item) => ({

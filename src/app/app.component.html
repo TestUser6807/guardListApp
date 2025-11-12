@@ -13,7 +13,7 @@
       [showIcon]="true"
       [monthNavigator]="true"
       [yearNavigator]="true"
-      yearRange="2000:2030"
+      yearRange="2025:2040"
       placeholder="Ay seç"
     ></p-calendar>
 </div>
@@ -28,7 +28,7 @@
     </div>
 
     <div class="d-flex justify-content-end w-100 mt-2">
-       <div class="form-check">       
+       <div class="form-check">     
         <button class="btn btn-danger" (click)="reset()">
           <i class="pi pi-refresh me-2"></i> Reset
         </button>
@@ -142,13 +142,13 @@
       </h5>
       <div class="form-group mb-2">
         <label>İsim</label>
-        <input type="text" class="form-control" [(ngModel)]="selectedPerson.name" />
+        <input type="text" class="form-control" minlength="3" maxlength="30" [(ngModel)]="selectedPerson.name" />
       </div>
 
       <div class="form-group mb-2">
         <label class="d-block mb-1">Atanamaz Nöbet Tarihleri</label>
         <p-multiSelect
-          [options]="dutyDays"
+          [options]="sortedDutyDays"
           [(ngModel)]="selectedPerson.notAvailableDays"
           optionLabel="label"
           display="chip"
