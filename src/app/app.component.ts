@@ -171,18 +171,20 @@ export class AppComponent {
     localStorage.setItem('persons', JSON.stringify(this.persons));
     this.assignDates();
   }
-  mix(){
+  tryAssign(){
     const unassignedDates = this.assignedDates.filter((date: AssignedDateModel) => {
       return date.personId == 'Kimse atanmadı';
     });
     this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates);
   }
   resetAssignDates(){
-    this.mix();
-    this.assignDates();
+    this.resetDuty();
+    const startIndex = Math.floor(Math.random()*this.persons.length)
+    this.assignDates(startIndex);
+    this.tryAssign();
   }
-  assignDates() {
-      let personIndex = 0;
+  assignDates(startIndex?:number) {
+      let personIndex = startIndex ?? 0;
 
       this.sortPersonsByDutyDaysCountAndDutyWeight();
       this.sortDutyDaysByWeight();

@@ -90,10 +90,10 @@
   </div>
   <div class="d-flex justify-content-end my-3" *ngIf="assignedDates.length > 0">
     <button class="btn btn-primary mx-1" (click)="resetAssignDates()">
-      <i class="pi pi-refresh me-2"></i> Yeniden Oluştur
-    </button>
-    <button class="btn btn-warning mx-1" (click)="mix()">
       <i class="pi pi-sync me-2"></i> Karıştır
+    </button>
+    <button class="btn btn-warning mx-1" (click)="tryAssign()">
+      <i class="pi pi-sync me-2"></i> Atamaya Çalış
     </button>
     <button class="btn btn-success" (click)="exportExcel()">
       <i class="pi pi-file-excel me-2"></i> Excel Olarak İndir
