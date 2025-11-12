@@ -37,4 +37,10 @@ export class PersonModel {
         // Eğer dutyDays boşsa, ağırlık 0 olarak döner
         return 0;
     }
+    public calculateDutyWeekDayCount(dayIndex: number): number {
+        if (!this.dutyDays || this.dutyDays.length === 0)
+            return 0;
+        return this.dutyDays.filter(dutyDate => dutyDate.getDay() === dayIndex).length;
+    }
+
 }

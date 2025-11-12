@@ -20,15 +20,25 @@ import { AssignedDateModel } from './assigned-date.model';
 export class AppComponent {
   dutyDays: { label: string; value: Date }[] = [];
   selectedMonth: Date | undefined = undefined;
-  showModal = false;
+  showModal:boolean = false;
   selectedPerson: PersonModel = new PersonModel(uuid.v4(), '', []);
   persons: PersonModel[] = []; 
   assignedDates: AssignedDateModel[] = [] //atananan tarihler ve kişiler
   dayWeight:number[]= [1.5,1, 1, 1, 0.75, 1.25, 2]; //pazardan cumartesiye gün ağırlıkları
-  isEditing = false;
-  dutyDayCountTolerance = 1; // Ortalama nöbet sayısına ek olarak izin verilen maksimum nöbet sayısı farkı  
-  dutyDayWeightTolerance = 1; // Ortalama nöbet ağırlığına ek olarak izin verilen maksimum nöbet ağırlığı farkı 
-  numberOfCycles = 5;
+  isEditing:boolean = false;
+  dutyDayCountTolerance:number = 1; // Ortalama nöbet sayısına ek olarak izin verilen maksimum nöbet sayısı farkı  
+  dutyDayWeightTolerance:number = 1; // Ortalama nöbet ağırlığına ek olarak izin verilen maksimum nöbet ağırlığı farkı 
+  numberOfCycles:number = 5;
+  days:string[] = [
+      'Pazar',
+      'Pazartesi',
+      'Salı',
+      'Çarşamba',
+      'Perşembe',
+      'Cuma',
+      'Cumartesi',
+    ];
+
   // TODO use json or sqlite database 
   constructor() {
     const storedPersons = localStorage.getItem('persons');
@@ -418,16 +428,7 @@ export class AppComponent {
     localStorage.setItem('assignedDates', JSON.stringify(this.assignedDates));
   }
   getWeekDay(date: Date): string {
-    const days = [
-      'Pazar',
-      'Pazartesi',
-      'Salı',
-      'Çarşamba',
-      'Perşembe',
-      'Cuma',
-      'Cumartesi',
-    ];
-    return days[date.getDay()];
+    return this.days[date.getDay()];
   }
   formatDate(date?: Date): string {
     if (!date) return '';
@@ -441,7 +442,10 @@ export class AppComponent {
       .slice() // orijinal diziyi kopyala (immutability)
       .sort((a, b) => a.value.getTime() - b.value.getTime());
   }
-
+  get unassignedDatesCount(){
+    const unassignedDates = this.assignedDates.filter(d => d.personId == 'Kimse atanmadı');
+    return unassignedDates.length;
+  }
   exportExcel(): void {
     // 1. Veri hazırlanıyor
     const worksheetData = this.assignedDates.map((item) => ({

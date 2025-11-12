@@ -41,23 +41,36 @@
         
         <div class="justify-content-between align-items-center mb-2">
           <div class="row">
-            <h5 class="col-md-3">Adı</h5>
+            <h5 class="col-md-2">Adı</h5>
             <h5 class="col-md-2">Nöbet Sayısı</h5>
             <h5 class="col-md-2">Nöbet Ağırlığı</h5>
-            <h5 class="col-md-4 text-center">İşlemler</h5>
+            <h5 class="col-md-3">Hafta Günleri</h5>
+            <h5 class="col-md-3 text-center">İşlemler</h5>
           </div>
           <hr class="my-2" style="border:2px solid #000000" />
 
 
         @for (person of persons; track $index) {
           <!-- Kişi Adı -->
-          <div class="row mb-2 p-1 align-items-center">
-            <div class="col-md-3">{{person.name}}</div>
+           <div class="row mb-2 p-1 align-items-center">
+            <div class="col-md-2">{{person.name}}</div>
             <div class="col-md-2">{{person.dutyDayCount}}</div>
             <div class="col-md-2">{{person.dutyDayWeight}}</div>
-            <div class="col-md-5 d-flex justify-content-end">
+            <div class="col-md-3"> 
+              <ul class="list-unstyled">
+                <li *ngFor="let day of days; let i = index" 
+                    >
+                    <p *ngIf="person.calculateDutyWeekDayCount(i) > 0">
+                      {{ day }}: {{ person.calculateDutyWeekDayCount(i) }} nöbet
+
+                    </p>
+                </li>
+              </ul>
+
+            </div>
+            <div class="col-md-3 d-flex flex-column align-items-center">
               <button
-                class="btn btn-outline-warning me-2"
+                class="btn btn-outline-warning mb-2"
                 (click)="openEditModal(person)"
                 title="Güncelle"
               >
@@ -72,6 +85,7 @@
                 <i class="pi pi-trash me-1"></i> Sil
               </button>
             </div>
+
           </div>
           <hr class="mb-2 text-black" />   
         }
@@ -93,12 +107,15 @@
       <i class="pi pi-sync me-2"></i> Karıştır
     </button>
     <button class="btn btn-warning mx-1" (click)="tryAssign()">
-      <i class="pi pi-sync me-2"></i> Atamaya Çalış
+      <i class="pi pi-arrow-right me-2"></i> Atamaya Çalış
     </button>
     <button class="btn btn-success" (click)="exportExcel()">
       <i class="pi pi-file-excel me-2"></i> Excel Olarak İndir
     </button>
   </div>
+  @if(unassignedDatesCount > 0){
+    <div class="d-flex justify-content-end text-danger">{{unassignedDatesCount}} tarihe kimse atanamadı! </div> 
+  }
 
   <p *ngIf="assignedDates.length > 0" class="mt-3 fw-bold">
     Seçilen Tarihler ve Atananlar:
