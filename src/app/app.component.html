@@ -110,7 +110,42 @@
       Seçilen Tarihler ve Atananlar:
     </p>
     }
-    @if (assignedDates.length > 0) {
+
+    <div class="container">
+          <div class="row">
+      @for (day of ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi','Pazar']; track $index) {
+      <h5 class="col text-center">{{day}}</h5>
+      }
+    </div>
+      @for(row of assignedDatesView; track $index;){
+        <div class="row">
+        @for (assignedDate of row; track $index;) {
+        <div [style.background-color]="assignedDate?.color" class="col card text-center m-1 border-radius border-primary">
+          <!-- Eğer assignedDate null değilse, göster -->
+          <div  class="p-4" *ngIf="assignedDate">
+            <i class="pi pi-calendar text-success fs-1"></i>
+            <span class="d-block"> 
+            {{assignedDate.personName}}
+          {{assignedDate?.color}}
+
+            </span>
+            <span class="mt-2 mb-0">  {{assignedDate.assignedDate | date: 'dd/MM/yyyy' }}</span>
+          </div>
+          <!-- Eğer assignedDate null ise, boşluk göster -->
+          <div class="p-4" *ngIf="!assignedDate"> 
+            <i class="pi pi-calendar-times text-secondary" style="font-size: 5rem"></i> 
+          </div>
+          
+        </div>
+        }
+      </div>
+      }
+      
+    </div>
+
+
+
+    <!-- @if (assignedDates.length > 0) {
     <table class="table table-striped table-hover">
       <thead>
         <tr>
@@ -132,33 +167,40 @@
 
       </tbody>
     </table>
-    }
+    } -->
+
+
+
+
+
+
+
   </div>
-    <!-- MODAL -->
-    @if(showModal) { <div class="modal fade show d-block" tabindex="-1" role="dialog"
-      style="background: rgba(0, 0, 0, 0.5)">
-      <div class="modal-dialog" role="document">
-        <div class="modal-content p-3">
-          <h5 class="modal-title">
-            {{ isEditing ? "Kişiyi Güncelle" : "Kişi Ekle" }}
-          </h5>
-          <div class="form-group mb-2">
-            <label>İsim</label>
-            <input type="text" class="form-control" minlength="3" maxlength="30" [(ngModel)]="selectedPerson.name" />
-          </div>
+  <!-- MODAL -->
+  @if(showModal) { <div class="modal fade show d-block" tabindex="-1" role="dialog"
+    style="background: rgba(0, 0, 0, 0.5)">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content p-3">
+        <h5 class="modal-title">
+          {{ isEditing ? "Kişiyi Güncelle" : "Kişi Ekle" }}
+        </h5>
+        <div class="form-group mb-2">
+          <label>İsim</label>
+          <input type="text" class="form-control" minlength="3" maxlength="30" [(ngModel)]="selectedPerson.name" />
+        </div>
 
-          <div class="form-group mb-2">
-            <label class="d-block mb-1">Atanamaz Nöbet Tarihleri</label>
-            <p-multiSelect [options]="sortedDutyDays" [(ngModel)]="selectedPerson.notAvailableDays" optionLabel="label"
-              display="chip" placeholder="Tarihleri Seç" [filter]="true"></p-multiSelect>
-          </div>
+        <div class="form-group mb-2">
+          <label class="d-block mb-1">Atanamaz Nöbet Tarihleri</label>
+          <p-multiSelect [options]="sortedDutyDays" [(ngModel)]="selectedPerson.notAvailableDays" optionLabel="label"
+            display="chip" placeholder="Tarihleri Seç" [filter]="true"></p-multiSelect>
+        </div>
 
-          <div class="d-flex justify-content-end">
-            <button class="btn btn-secondary me-2" (click)="closeModal()">
-              İptal
-            </button>
-            <button class="btn btn-success" (click)="savePerson()">Kaydet</button>
-          </div>
+        <div class="d-flex justify-content-end">
+          <button class="btn btn-secondary me-2" (click)="closeModal()">
+            İptal
+          </button>
+          <button class="btn btn-success" (click)="savePerson()">Kaydet</button>
         </div>
       </div>
-    </div>}
+    </div>
+  </div>}

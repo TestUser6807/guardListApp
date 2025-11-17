@@ -3,12 +3,37 @@ export class PersonModel {
     name: string = '';
     notAvailableDays: Date[] = [];
     dutyDays?: Date[] = [];
-    
-    constructor(id: string, name: string, notAvailableDays?: Date[], dutyDays?: Date[]) {
+    color:string='';
+    private colorPalette = [
+      'FFB6C1',
+      'ADD8E6',
+      '90EE90',
+      'FFFF99',
+      'FFD700',
+      'FFA07A',
+      'DDA0DD',
+      '00CED1',
+      'F08080',
+      'E0FFFF',
+      'C0C0C0',
+      'FFC0CB',
+      'AFEEEE',
+      'FFFACD',
+      '0046FF',
+      '73C8D2',
+      'F5F1DC',
+      'FF9013',
+      '004030',
+      '4A9782',
+      'DCD0A8',
+      'FFF9E5',
+    ];
+    constructor(id: string, name: string, notAvailableDays?: Date[], dutyDays?: Date[],color?:string) {
         this.id = id;
         this.name = name;
         this.notAvailableDays = notAvailableDays || [];
         this.dutyDays = dutyDays || [];
+        this.color = color ?? '#' + this.colorPalette[Math.floor(Math.random()*this.colorPalette.length)];
     }
     // Duty day count'ı getter olarak döndürüyoruz.
     get dutyDayCount(): number {
