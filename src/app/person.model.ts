@@ -28,13 +28,34 @@ export class PersonModel {
       'DCD0A8',
       'FFF9E5',
     ];
+    private static usedColors: Set<string> = new Set();
     constructor(id: string, name: string, notAvailableDays?: Date[], dutyDays?: Date[],color?:string) {
         this.id = id;
         this.name = name;
         this.notAvailableDays = notAvailableDays || [];
         this.dutyDays = dutyDays || [];
-        this.color = color ?? '#' + this.colorPalette[Math.floor(Math.random()*this.colorPalette.length)];
+        if (color) {
+                this.color = color;
+            } else {
+                // Renk paletinden benzersiz bir renk seç
+                this.color = this.getUniqueColor();
+            }
     }
+
+    private getUniqueColor(): string {
+        let newColor: string;
+        
+        // Kullanıcıya daha önce atanmış olan renkleri geçmemek için
+        do {
+            newColor = '#' + this.colorPalette[Math.floor(Math.random() * this.colorPalette.length)];
+        } while (PersonModel.usedColors.has(newColor));
+
+        // Yeni rengi kullanılmış renkler listesine ekle
+        PersonModel.usedColors.add(newColor);
+        
+        return newColor;
+    }
+
     // Duty day count'ı getter olarak döndürüyoruz.
     get dutyDayCount(): number {
         return this.dutyDays?.length || 0;

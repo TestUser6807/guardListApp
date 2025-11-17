@@ -61,7 +61,6 @@ export class AppComponent {
       }
     }
 
-
     const storedAssignments = localStorage.getItem('assignedDates');
     if (storedAssignments) {
       this.assignedDates = JSON.parse(storedAssignments).map((item: AssignedDateModel) => ({
@@ -79,78 +78,65 @@ export class AppComponent {
     value: new Date(item.value),
    }));
 }
-
   this.setAssignedDatesView();
   }
+  setAssignedDatesView() {
+    // İlk olarak assignedDates dizisinin ilk öğesinin gününü alıyoruz
+    const firstAssignedDateDay = this.assignedDates[0]?.assignedDate.getDay(); // 0: Pazar, 1: Pazartesi, ..., 6: Cumartesi
+    let emptySlots = 0;
+    console.log(firstAssignedDateDay)
+    // İlk günün hangi günde olduğunu kontrol edip, boşluk sayısını belirliyoruz
+    switch (firstAssignedDateDay) {
+      case 0:
+        emptySlots = 6; // Pazar ise, 6 boşluk
+        break;
+      case 1:
+        emptySlots = 0; // Pazartesi ise, hiç boşluk yok
+        break;
+      case 2:
+        emptySlots = 1; // Salı ise, 1 boşluk
+        break;
+      case 3:
+        emptySlots = 2; // Çarşamba ise, 2 boşluk
+        break;
+      case 6:
+        emptySlots = 5; // Cumartesi ise, 5 boşluk
+        break;
+      default:
+        emptySlots = 0;
+        break;
+    }
 
-setAssignedDatesView() {
-  // İlk olarak assignedDates dizisinin ilk öğesinin gününü alıyoruz
-  const firstAssignedDateDay = this.assignedDates[0]?.assignedDate.getDay(); // 0: Pazar, 1: Pazartesi, ..., 6: Cumartesi
-  let emptySlots = 0;
-  console.log(firstAssignedDateDay)
-  // İlk günün hangi günde olduğunu kontrol edip, boşluk sayısını belirliyoruz
-  switch (firstAssignedDateDay) {
-    case 0:
-      emptySlots = 6; // Pazar ise, 6 boşluk
-      break;
-    case 1:
-      emptySlots = 0; // Pazartesi ise, hiç boşluk yok
-      break;
-    case 2:
-      emptySlots = 1; // Salı ise, 1 boşluk
-      break;
-    case 3:
-      emptySlots = 2; // Çarşamba ise, 2 boşluk
-      break;
-    case 6:
-      emptySlots = 5; // Cumartesi ise, 5 boşluk
-      break;
-    default:
-      emptySlots = 0;
-      break;
-  }
+    // assignedDatesView'i 2 boyutlu dizi olarak oluşturuyoruz
+    // Toplamda 7 sütun (1 hafta) olacak
+    const totalRows = Math.ceil((this.assignedDates.length + emptySlots) / 7); // Kaç satır gerektiğini hesaplıyoruz (1 hafta = 7 gün)
 
-  // assignedDatesView'i 2 boyutlu dizi olarak oluşturuyoruz
-  // Toplamda 7 sütun (1 hafta) olacak
-  const totalRows = Math.ceil((this.assignedDates.length + emptySlots) / 7); // Kaç satır gerektiğini hesaplıyoruz (1 hafta = 7 gün)
+    // assignedDatesView dizisini sıfırdan başlatıyoruz
+    this.assignedDatesView = Array.from({ length: totalRows }, () => new Array(7).fill(null));
+    let currentIndex = 0;
+    // İlk satırı dolduruyoruz, boşlukları null ile dolduruyoruz
+    for (let i = 0; i < 7; i++) {
+      if (i < emptySlots) {
+        this.assignedDatesView[0][i] = null; // İlk satırdaki boşlukları null ile dolduruyoruz
+      } else {
+        const assignedIndex = i - emptySlots;
+        if (assignedIndex < this.assignedDates.length) {
+          this.assignedDatesView[0][i] = this.assignedDates[currentIndex];
+          currentIndex++;
+        }
+      }
+    }
 
-  // assignedDatesView dizisini sıfırdan başlatıyoruz
-  this.assignedDatesView = Array.from({ length: totalRows }, () => new Array(7).fill(null));
-  let currentIndex = 0;
-  // İlk satırı dolduruyoruz, boşlukları null ile dolduruyoruz
-  for (let i = 0; i < 7; i++) {
-    if (i < emptySlots) {
-      this.assignedDatesView[0][i] = null; // İlk satırdaki boşlukları null ile dolduruyoruz
-    } else {
-      const assignedIndex = i - emptySlots;
-      if (assignedIndex < this.assignedDates.length) {
-        this.assignedDatesView[0][i] = this.assignedDates[currentIndex];
-        currentIndex++;
+    // Diğer satırlarda, assignedDates dizisini yerleştiriyoruz
+    for (let row = 1; row < totalRows; row++) {
+      for (let col = 0; col < 7; col++) {
+        if (currentIndex < this.assignedDates.length) {
+          this.assignedDatesView[row][col] = this.assignedDates[currentIndex];
+          currentIndex++;
+        }
       }
     }
   }
-
-  // Diğer satırlarda, assignedDates dizisini yerleştiriyoruz
-  for (let row = 1; row < totalRows; row++) {
-    for (let col = 0; col < 7; col++) {
-      if (currentIndex < this.assignedDates.length) {
-        this.assignedDatesView[row][col] = this.assignedDates[currentIndex];
-        currentIndex++;
-      }
-    }
-  }
-}
-
-
-// TODO Kod
-
-
-
-
-
-
-
-
   reset() {
     localStorage.removeItem('assignedDates');
     localStorage.removeItem('dutyDays');
@@ -375,6 +361,7 @@ setAssignedDatesView() {
         if (
           this.userMustNotWorkTwoConsecutiveDays(person, dutyDay.assignedDate) &&
           this.userMustBeAvailable(person, dutyDay.assignedDate) &&
+          this.userMustNotWorkMoreThanOneShiftOnSameDay(person, dutyDay.assignedDate) &&
           !person.dutyDays.some(d => d.getTime() === dutyDay.assignedDate.getTime())
         ) {
           // Atamayı yap
@@ -461,6 +448,10 @@ setAssignedDatesView() {
   }
   userMustNotWorkMoreThanOneShiftOnSameDay(person: PersonModel, date: Date): boolean {
     const dayOfWeek = date.getDay();
+    //ignore pazartesi salı çarşamba
+    if(dayOfWeek == 1 || dayOfWeek == 2 || dayOfWeek == 3 )
+      return true;
+
     const shiftsOnSameDay = person.dutyDays?.findIndex(dutyDate => dutyDate.getDay() === dayOfWeek) || [];
     return shiftsOnSameDay == -1;
   }
