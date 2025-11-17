@@ -27,7 +27,7 @@ export class AppComponent {
   dayWeight:number[]= [1.5,1, 1, 1, 0.75, 1.25, 2]; //pazardan cumartesiye gün ağırlıkları
   isEditing:boolean = false;
   dutyDayCountTolerance:number = 1; // Ortalama nöbet sayısına ek olarak izin verilen maksimum nöbet sayısı farkı  
-  dutyDayWeightTolerance:number = 0.75; // Ortalama nöbet ağırlığına ek olarak izin verilen maksimum nöbet ağırlığı farkı 
+  dutyDayWeightTolerance:number = 1; // Ortalama nöbet ağırlığına ek olarak izin verilen maksimum nöbet ağırlığı farkı 
   numberOfCycles:number = 5;
   days:string[] = [
       'Pazar',
@@ -149,6 +149,7 @@ export class AppComponent {
     });
     localStorage.setItem('persons', JSON.stringify(this.persons));
     this.selectedMonth = undefined;
+    this.assignedDatesView = Array.from({ length: 7 }, () => []);
   }
   onDutyDaySelected(event: Date) {
     const selectedMonth = event.getMonth(); // Seçilen ay (0-11 arası)
