@@ -1,8 +1,8 @@
-<div class="container m-2">
+<div class="container p-2 m-2">
   <div class="card p-2">
     <div class="row">
     <div class="col">
-  <h4>Nöbet Tutulacak Tarihlerini Seç</h4>
+  <h4>Nöbet Tutulacak Ayı Seç</h4>
    <div>
     <p-calendar
       id="monthPicker"
@@ -21,7 +21,7 @@
 </div>
       <div class="col" *ngIf="dutyDays.length > 0">
         <h4>Kişi Ekle</h4>
-        <button class="btn btn-primary" (click)="openCreateModel()">
+        <button class="btn btn-success" (click)="openCreateModel()">
           <i class="pi pi-user me-2"></i> Kişi Ekle
         </button>
       </div>
@@ -50,7 +50,7 @@
           <hr class="my-2" style="border:2px solid #000000" />
 
 
-        @for (person of persons; track $index) {
+        @for (person of sortedPersons; track $index) {
           <!-- Kişi Adı -->
            <div class="row mb-2 p-1 align-items-center">
             <div class="col-md-2">{{person.name}}</div>
