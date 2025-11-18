@@ -170,6 +170,7 @@ export class AppComponent {
     localStorage.setItem('dutyDays', JSON.stringify(this.dutyDays));
     localStorage.removeItem('assignedDates');
     this.assignedDates = [];
+    this.assignedDatesView = Array.from({ length: 7 }, () => []);
     this.persons.forEach((p) => {
       p.notAvailableDays = [];
       p.dutyDays = [];
@@ -221,6 +222,7 @@ export class AppComponent {
   resetDuty(){
     localStorage.removeItem('assignedDates');
     this.assignedDates = [];
+    this.assignedDatesView = Array.from({ length: 7 }, () => []);
     this.persons.forEach((p) => {
       p.dutyDays = [];
     });
@@ -239,6 +241,7 @@ export class AppComponent {
     this.persons = [];
     localStorage.setItem('persons', JSON.stringify(this.persons));
     this.assignedDates = [];
+    this.assignedDatesView = Array.from({ length: 7 }, () => []);
     localStorage.removeItem('assignedDates');
   }
   resetAllPersonNotAvailableDays() {
@@ -477,6 +480,7 @@ export class AppComponent {
   }
   setAssignedDates() {
     this.assignedDates = []; // Öncelikle assignedDates dizisini sıfırlıyoruz.
+    this.assignedDatesView = Array.from({ length: 7 }, () => []);
 
     // Person'lar üzerinden geçiyoruz ve her bir person için dutyDays'leri kontrol ediyoruz
     this.persons.forEach((person) => {
