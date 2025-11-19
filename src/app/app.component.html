@@ -56,11 +56,16 @@
         </div>
         @if (assignedDates.length > 0) {
         <div class="d-flex justify-content-end my-3">
+           
           <button class="btn btn-primary mx-1" (click)="resetAssignDates()">
             <i class="pi pi-sync me-2"></i> Karıştır
           </button>
           <button class="btn btn-warning mx-1" (click)="tryAssign()">
             <i class="pi pi-arrow-right me-2"></i> Atamaya Çalış
+          </button>
+          <button class="btn btn-danger mx-1" (click)="hardAssign()">
+            <i class="pi pi-arrow-up me-2"></i> Zorla ata 
+            (ÖNERİLMEZ!)
           </button>
           <button class="btn btn-success" (click)="exportExcel()">
             <i class="pi pi-file-excel me-2"></i> Excel Olarak İndir

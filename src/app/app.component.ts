@@ -281,6 +281,10 @@ export class AppComponent {
     let unassignedDates = this.assignedDates.filter(d => d.personId == 'Kimse atanmadı');
     this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates)
   }
+  hardAssign(){
+    let unassignedDates = this.assignedDates.filter(d => d.personId == 'Kimse atanmadı');
+    this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates,true)
+  }
   resetAssignDates() {
     this.resetDuty();
     this.assignDates();
@@ -344,9 +348,9 @@ export class AppComponent {
     this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates);
 
   }
-  assignShiftsToDaysWithoutAssignedShifts(unassignedDates: AssignedDateModel[]) {
+  assignShiftsToDaysWithoutAssignedShifts(unassignedDates: AssignedDateModel[], assignHard?: boolean) {
     if (unassignedDates.length > 0) {
-
+      assignHard = assignHard == null ? false : true;
       // Unassigned tarihleri sırala
       unassignedDates.sort(
         (a, b) =>
@@ -366,7 +370,8 @@ export class AppComponent {
           if (
             this.userMustNotWorkTwoConsecutiveDays(person, dutyDay.assignedDate) &&
             this.userMustBeAvailable(person, dutyDay.assignedDate) &&
-            this.userMustNotWorkMoreThanOneShiftOnSameDay(person, dutyDay.assignedDate) &&
+            (assignHard ? true : this.userOnDutyOnThursdayMustNotBeOnDutyOnTheWeekend(person, dutyDay.assignedDate)) &&
+            (assignHard ? true : this.userMustNotWorkMoreThanOneShiftOnSameDay(person, dutyDay.assignedDate)) &&
             !person.dutyDays.some(d => d.getTime() === dutyDay.assignedDate.getTime())
           ) {
             // Atamayı yap
