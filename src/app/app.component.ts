@@ -9,6 +9,7 @@ import { saveAs } from 'file-saver';
 import { PersonModel } from './person.model';
 import * as uuid from 'uuid';
 import { AssignedDateModel } from './assigned-date.model';
+import { ThisReceiver } from '@angular/compiler';
 
 @Component({
   selector: 'app-root',
@@ -19,6 +20,7 @@ import { AssignedDateModel } from './assigned-date.model';
 })
 export class AppComponent {
   dutyDays: { label: string; value: Date }[] = [];
+  dividedDutyDays: { [key: number]: { label: string; value: Date }[] } = {};
   selectedMonth: Date | undefined = undefined;
   showModal: boolean = false;
   selectedPerson: PersonModel = new PersonModel(uuid.v4(), '', []);
@@ -84,7 +86,6 @@ export class AppComponent {
     // İlk olarak assignedDates dizisinin ilk öğesinin gününü alıyoruz
     const firstAssignedDateDay = this.assignedDates[0]?.assignedDate.getDay(); // 0: Pazar, 1: Pazartesi, ..., 6: Cumartesi
     let emptySlots = 0;
-    console.log(firstAssignedDateDay)
     // İlk günün hangi günde olduğunu kontrol edip, boşluk sayısını belirliyoruz
     switch (firstAssignedDateDay) {
       case 0:
@@ -292,8 +293,9 @@ export class AppComponent {
   assignDates() {
     let personIndex = 0;
 
-    this.sortPersonsByDutyDaysCountAndDutyWeight();
-    this.sortDutyDaysByWeight();
+    this.sortPersonDesc();
+    this.assignDutyDaysByWeekday();
+
     this.dutyDays.forEach((dutyDay) => {
       const person = this.persons[personIndex];
       if (this.userMustNotWorkTwoConsecutiveDays(person, dutyDay.value) &&
@@ -304,38 +306,10 @@ export class AppComponent {
         this.userOnDutyOnThursdayMustNotBeOnDutyOnTheWeekend(person, dutyDay.value)
       ) {
         person.dutyDays = person.dutyDays || [];
-        // Bu tarih daha önce atanmış mı kontrol et, atanmışsa eskiyi sil
-        if (this.assignedDates.some(ad => ad.assignedDate.getTime() === dutyDay.value.getTime())) {
-          this.persons.forEach((p) => {
-            // person.dutyDays dizisinde bu tarihe sahip olup olmadığını kontrol et
-            const pddIndex = p.dutyDays?.findIndex(pdd => pdd.getTime() === dutyDay.value.getTime());
-
-            // Eğer tarih bulunduysa, dutyDays'ten sil
-            if (pddIndex !== undefined && pddIndex >= 0) {
-              p.dutyDays?.splice(pddIndex, 1);
-            }
-          });
-        }
-
         person.dutyDays.push(dutyDay.value);
         localStorage.setItem('persons', JSON.stringify(this.persons));
         return;
-      }
-
-      // Person index'ini döngüsel şekilde güncelle
-      const userHaveMoreNotAvailableDays = this.persons?.find((p) => {
-        return p.notAvailableDays.length > this.dutyDays.length / 2;
-      });
-
-      if (userHaveMoreNotAvailableDays !== undefined &&
-        this.userMustNotWorkTwoConsecutiveDays(person, dutyDay.value) &&
-        this.userMustBeAvailable(person, dutyDay.value) &&
-        this.noMoreThanTheAverageNumberOfDutysAreWorked(person) &&
-        this.noMoreThanTheAverageNumberOfDutysWeightAreWorked(person)) {
-        // Eğer nöbet tutabilecek günü az biri var ise ona tekrar nöbet verilir
-        personIndex = this.persons.indexOf(userHaveMoreNotAvailableDays);
-      } else {
-        // Eğer personIndex, persons.length'ten büyükse sıfırlanır
+      }else{
         personIndex = (personIndex + 1) % this.persons.length;
       }
     });
@@ -466,7 +440,6 @@ export class AppComponent {
   userOnDutyOnThursdayMustNotBeOnDutyOnTheWeekend(person: PersonModel, date: Date): boolean {
     const dayOfWeek = date.getDay();
     const previousThursday = new Date(date);
-    console.log(this.days[dayOfWeek], "dayOfWeek");
 
     // Eğer bugün Perşembe ise
     if (dayOfWeek === 4) { 
@@ -534,10 +507,50 @@ export class AppComponent {
       return aWeight - bWeight;  // Küçükten büyüğe sıralama
     });
   }
-  sortDutyDaysByWeight() {
-    this.dutyDays.sort((a, b) => {
-      return this.dayWeight[b.value.getDay()] - this.dayWeight[a.value.getDay()];
-    })
+  sortPersonDesc() {
+    this.persons.sort((a, b) => {
+      // İlk olarak notAvailableDays.length'e göre sıralama yap
+      if (a.notAvailableDays.length !== b.notAvailableDays.length) {
+        return b.notAvailableDays.length - a.notAvailableDays.length;  // En fazla notAvailableDays olan önce gelsin
+      }
+
+      // Eğer notAvailableDays'lar eşitse, dutyDayCount'a göre sıralama yap
+      if (a.dutyDayCount !== b.dutyDayCount) {
+        return a.dutyDayCount - b.dutyDayCount;
+      }
+
+      // Eğer dutyDayCount'lar eşitse, dutyDayWeight'e göre sıralama yap
+      const aWeight = a.dutyDays?.reduce((sum, dutyDate) => sum + this.dayWeight[dutyDate.getDay()], 0) || 0;
+      const bWeight = b.dutyDays?.reduce((sum, dutyDate) => sum + this.dayWeight[dutyDate.getDay()], 0) || 0;
+
+      return aWeight - bWeight;  // Küçükten büyüğe sıralama
+    });
+  }
+
+
+
+
+
+
+  assignDutyDaysByWeekday() {
+    // İlk olarak, dividedDutyDays nesnesini sıfırlıyoruz.
+    this.dividedDutyDays = {
+      0: [], // Pazar
+      1: [], // Pazartesi
+      2: [], // Salı
+      3: [], // Çarşamba
+      4: [], // Perşembe
+      5: [], // Cuma
+      6: []  // Cumartesi
+    };
+
+    // dutyDays dizisini işliyoruz
+    this.dutyDays.forEach(dutyDay => {
+      const dayOfWeek = dutyDay.value.getDay(); // 0 - 6 arasında bir değer döner (0: Pazar, 1: Pazartesi, ...)
+      
+      // Her günün dizisine dutyDay'i ekliyoruz
+      this.dividedDutyDays[dayOfWeek].push(dutyDay);
+    });
   }
   setAssignedDates() {
     this.assignedDates = []; // Öncelikle assignedDates dizisini sıfırlıyoruz.
