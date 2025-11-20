@@ -20,7 +20,6 @@ import { ThisReceiver } from '@angular/compiler';
 })
 export class AppComponent {
   dutyDays: { label: string; value: Date }[] = [];
-  dividedDutyDays: { [key: number]: { label: string; value: Date }[] } = {};
   selectedMonth: Date | undefined = undefined;
   showModal: boolean = false;
   selectedPerson: PersonModel = new PersonModel(uuid.v4(), '', []);
@@ -29,7 +28,7 @@ export class AppComponent {
   dayWeight: number[] = [1.5, 1, 1, 1, 0.75, 1.25, 2]; //pazardan cumartesiye gün ağırlıkları
   isEditing: boolean = false;
   dutyDayCountTolerance: number = 1; // Ortalama nöbet sayısına ek olarak izin verilen maksimum nöbet sayısı farkı  
-  dutyDayWeightTolerance: number = 1; // Ortalama nöbet ağırlığına ek olarak izin verilen maksimum nöbet ağırlığı farkı 
+  dutyDayWeightTolerance: number = 0.75; // Ortalama nöbet ağırlığına ek olarak izin verilen maksimum nöbet ağırlığı farkı 
   numberOfCycles: number = 5;
   days: string[] = [
     'Pazar',
@@ -282,9 +281,9 @@ export class AppComponent {
     let unassignedDates = this.assignedDates.filter(d => d.personId == 'Kimse atanmadı');
     this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates)
   }
-  hardAssign(){
+  hardAssign() {
     let unassignedDates = this.assignedDates.filter(d => d.personId == 'Kimse atanmadı');
-    this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates,true)
+    this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates, true)
   }
   resetAssignDates() {
     this.resetDuty();
@@ -294,7 +293,7 @@ export class AppComponent {
     let personIndex = 0;
 
     this.sortPersonDesc();
-    this.assignDutyDaysByWeekday();
+    this.sortDutyDaysByWeightDesc();
 
     this.dutyDays.forEach((dutyDay) => {
       const person = this.persons[personIndex];
@@ -309,7 +308,7 @@ export class AppComponent {
         person.dutyDays.push(dutyDay.value);
         localStorage.setItem('persons', JSON.stringify(this.persons));
         return;
-      }else{
+      } else {
         personIndex = (personIndex + 1) % this.persons.length;
       }
     });
@@ -320,7 +319,88 @@ export class AppComponent {
     // Atanamayan tarih varsa atamaya çalış
     let unassignedDates = this.assignedDates.filter(d => d.personId == 'Kimse atanmadı');
     this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates);
+    // Daha iyi atama
+    this.doBetterDutyWeightAssign();
+  }
+  doBetterDutyWeightAssign() {
+    // 1) En fazla dutyDays (nöbet) olan kullanıcıyı bulma (maxUser)
+    const maxWeightedDutyUser = this.persons.reduce((maxUser, currentUser) =>
+      !maxUser || currentUser.dutyDayWeight > maxUser.dutyDayWeight
+        ? currentUser
+        : maxUser
+    );
 
+    // 2) En az dutyDays (nöbet) olan kullanıcıyı bulma (minUser)
+    const minWeightedDutyUser = this.persons.reduce((minUser, currentUser) =>
+      !minUser || currentUser.dutyDayWeight < minUser.dutyDayWeight
+        ? currentUser
+        : minUser
+    );
+
+    if (!maxWeightedDutyUser.dutyDays?.length || !minWeightedDutyUser.dutyDays?.length) {
+      return;
+    }
+
+    const maxDays = maxWeightedDutyUser.dutyDays;
+    const minDays = minWeightedDutyUser.dutyDays;
+
+    // 3) Swap yapmak için uygun kombinasyonları dene
+    let swapped = false;
+
+    // Kombinasyonları sırayla dene: ilk başta maxUser'ın en fazla nöbeti ile minUser'ın en az nöbeti
+    const combinations = [];
+
+    // Max günlerin sırasıyla denenecek swap kombinasyonları
+    for (let i = 0; i < maxDays.length; i++) {
+      for (let j = 0; j < minDays.length; j++) {
+        combinations.push([i, j]);  // [maxUserın indexi, minUserın indexi]
+      }
+    }
+
+    // 4) Swap kombinasyonlarını sırayla dene
+    for (const [maxIndex, minIndex] of combinations) {
+      const maxUserMaxDay = maxDays[maxIndex]; // maxUser'ın ilgili en fazla nöbet günü
+      const minUserMinDay = minDays[minIndex]; // minUser'ın ilgili en az nöbet günü
+
+      // Max ve Min günlerinin ağırlıklarını karşılaştır
+      const maxDayWeight = this.dayWeight[maxUserMaxDay.getDay()]; // maxUser'ın gününün ağırlığı
+      const minDayWeight = this.dayWeight[minUserMinDay.getDay()]; // minUser'ın gününün ağırlığı
+
+      // MinUser'ın günü, MaxUser'ın gününden daha düşük ağırlığa sahip olmalı
+      if (minDayWeight >= maxDayWeight) {
+        continue; // Eğer minUser'ın gününün ağırlığı, maxUser'ınkinden fazla veya eşitse, swap yapma
+      }
+
+      // Swap için gerekli kurallar
+      const maxUserValid =
+        this.userMustNotWorkTwoConsecutiveDays(maxWeightedDutyUser, minUserMinDay) &&
+        this.userMustBeAvailable(maxWeightedDutyUser, minUserMinDay);
+
+      const minUserValid =
+        this.userMustNotWorkTwoConsecutiveDays(minWeightedDutyUser, maxUserMaxDay) &&
+        this.userMustBeAvailable(minWeightedDutyUser, maxUserMaxDay);
+
+      // Eğer geçerli swap yapılabilirse
+      if (maxUserValid && minUserValid) {
+        // Yer değiştir
+        const maxDayIndex = maxDays.indexOf(maxUserMaxDay);
+        const minDayIndex = minDays.indexOf(minUserMinDay);
+
+        if (maxDayIndex !== -1 && minDayIndex !== -1) {
+          // Swap işlemi
+          const temp = maxDays[maxDayIndex];
+          maxDays[maxDayIndex] = minDays[minDayIndex];
+          minDays[minDayIndex] = temp;
+
+          swapped = true;  // Swap başarılı
+          break;  // Swap başarıyla yapıldığında döngüden çık
+        }
+      }
+    }
+
+    // Kaydet
+    localStorage.setItem("persons", JSON.stringify(this.persons));
+    this.setAssignedDates();
   }
   assignShiftsToDaysWithoutAssignedShifts(unassignedDates: AssignedDateModel[], assignHard?: boolean) {
     if (unassignedDates.length > 0) {
@@ -442,7 +522,7 @@ export class AppComponent {
     const previousThursday = new Date(date);
 
     // Eğer bugün Perşembe ise
-    if (dayOfWeek === 4) { 
+    if (dayOfWeek === 4) {
       const saturday = new Date(date);
       saturday.setDate(date.getDate() + 2);  // 2 gün sonrası Cumartesi
 
@@ -526,31 +606,10 @@ export class AppComponent {
       return aWeight - bWeight;  // Küçükten büyüğe sıralama
     });
   }
-
-
-
-
-
-
-  assignDutyDaysByWeekday() {
-    // İlk olarak, dividedDutyDays nesnesini sıfırlıyoruz.
-    this.dividedDutyDays = {
-      0: [], // Pazar
-      1: [], // Pazartesi
-      2: [], // Salı
-      3: [], // Çarşamba
-      4: [], // Perşembe
-      5: [], // Cuma
-      6: []  // Cumartesi
-    };
-
-    // dutyDays dizisini işliyoruz
-    this.dutyDays.forEach(dutyDay => {
-      const dayOfWeek = dutyDay.value.getDay(); // 0 - 6 arasında bir değer döner (0: Pazar, 1: Pazartesi, ...)
-      
-      // Her günün dizisine dutyDay'i ekliyoruz
-      this.dividedDutyDays[dayOfWeek].push(dutyDay);
-    });
+  sortDutyDaysByWeightDesc() {
+    this.dutyDays.sort((a, b) => {
+      return this.dayWeight[b.value.getDay()] - this.dayWeight[a.value.getDay()];
+    })
   }
   setAssignedDates() {
     this.assignedDates = []; // Öncelikle assignedDates dizisini sıfırlıyoruz.
