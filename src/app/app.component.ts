@@ -310,7 +310,7 @@ export class AppComponent {
     let personIndex = 0;
 
     this.sortPersonDesc();
-    this.sortDutyDays();
+    this.sortDutyDaysByWeightDesc();
     console.log(this.dutyDays)
     this.dutyDays.forEach((dutyDay) => {
       const person = this.persons[personIndex];
@@ -623,25 +623,9 @@ export class AppComponent {
       return aWeight - bWeight;  // Küçükten büyüğe sıralama
     });
   }
-  sortDutyDays() {
-    // Günlerin sıralama ağırlıkları (Cumartesi = 0, Perşembe = 1, Pazar = 2, Cuma = 3, diğer günler ise sonraki sırada)
-    const dayWeight:{ [key: number]: number } = {
-      6: 0, // Cumartesi
-      4: 1, // Perşembe
-      0: 2, // Pazar
-      5: 3, // Cuma
-      1: 4, // Pazartesi
-      2: 5, // Salı
-      3: 6, // Çarşamba
-    };
-
+  sortDutyDaysByWeightDesc() {
     this.dutyDays.sort((a, b) => {
-      // `a.value.getDay()` ve `b.value.getDay()` ile hafta içindeki günü alıyoruz
-      const aDay = a.value.getDay();
-      const bDay = b.value.getDay();
-      
-      // Öncelikle, günlerin ağırlıklarına göre sıralama yapıyoruz
-      return dayWeight[aDay] - dayWeight[bDay];
+      return this.dayWeight[b.value.getDay()] - this.dayWeight[a.value.getDay()];
     });
   }
   setAssignedDates() {
@@ -707,7 +691,7 @@ export class AppComponent {
     }, this.persons[0]);
     let minUserAvaliableDayCount = this.dutyDays.length - minWeightedUser.notAvailableDays.length;
     let userCanDuty = (minUserAvaliableDayCount / 2) -1 >= minWeightedUser.dutyDayCount
-    if(maxWeightedUser.dutyDayWeight - minWeightedUser.dutyDayWeight > 2 && userCanDuty){
+    if((maxWeightedUser.dutyDayWeight - minWeightedUser.dutyDayWeight > 1.75) && userCanDuty){
       this.dayWeightAlert.set(`${maxWeightedUser.name} ${maxWeightedUser.dutyDayWeight} ağarlığında nöbet tutarken  ${minWeightedUser.name} ${minWeightedUser.dutyDayWeight} ağarlığında nöbet tutuyor düzeltme gerekebilir!`);
     }else{
       this.dayWeightAlert.set('');
