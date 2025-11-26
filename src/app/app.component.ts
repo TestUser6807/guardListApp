@@ -82,9 +82,14 @@ export class AppComponent {
     this.setAssignedDatesView();
   }
   setAssignedDatesView() {
-    // İlk olarak assignedDates dizisinin ilk öğesinin gününü alıyoruz
+    // assignedDates boşsa işlem yapma
+    if (!this.assignedDates || this.assignedDates.length === 0) {
+      return; // Eğer assignedDates boşsa, fonksiyonu sonlandırabiliriz.
+    }
+
     const firstAssignedDateDay = this.assignedDates[0]?.assignedDate.getDay(); // 0: Pazar, 1: Pazartesi, ..., 6: Cumartesi
     let emptySlots = 0;
+
     // İlk günün hangi günde olduğunu kontrol edip, boşluk sayısını belirliyoruz
     switch (firstAssignedDateDay) {
       case 0:
@@ -99,21 +104,28 @@ export class AppComponent {
       case 3:
         emptySlots = 2; // Çarşamba ise, 2 boşluk
         break;
+      case 4:
+        emptySlots = 3; // Perşembe ise, 3 boşluk (Mayıs 2025 örneği)
+        break;
+      case 5:
+        emptySlots = 4; // Cuma ise, 4 boşluk
+        break;
       case 6:
         emptySlots = 5; // Cumartesi ise, 5 boşluk
         break;
       default:
-        emptySlots = 0;
+        emptySlots = 0; // Diğer günler için
         break;
     }
 
     // assignedDatesView'i 2 boyutlu dizi olarak oluşturuyoruz
-    // Toplamda 7 sütun (1 hafta) olacak
     const totalRows = Math.ceil((this.assignedDates.length + emptySlots) / 7); // Kaç satır gerektiğini hesaplıyoruz (1 hafta = 7 gün)
 
     // assignedDatesView dizisini sıfırdan başlatıyoruz
     this.assignedDatesView = Array.from({ length: totalRows }, () => new Array(7).fill(null));
+    
     let currentIndex = 0;
+
     // İlk satırı dolduruyoruz, boşlukları null ile dolduruyoruz
     for (let i = 0; i < 7; i++) {
       if (i < emptySlots) {
@@ -133,6 +145,8 @@ export class AppComponent {
         if (currentIndex < this.assignedDates.length) {
           this.assignedDatesView[row][col] = this.assignedDates[currentIndex];
           currentIndex++;
+        } else {
+          this.assignedDatesView[row][col] = null; // Eğer assignedDates bittiğinde boşluk eklemek istiyorsanız
         }
       }
     }
@@ -293,8 +307,8 @@ export class AppComponent {
     let personIndex = 0;
 
     this.sortPersonDesc();
-    this.sortDutyDaysByWeightDesc();
-
+    this.sortDutyDays();
+    console.log(this.dutyDays)
     this.dutyDays.forEach((dutyDay) => {
       const person = this.persons[personIndex];
       if (this.userMustNotWorkTwoConsecutiveDays(person, dutyDay.value) &&
@@ -606,10 +620,26 @@ export class AppComponent {
       return aWeight - bWeight;  // Küçükten büyüğe sıralama
     });
   }
-  sortDutyDaysByWeightDesc() {
+  sortDutyDays() {
+    // Günlerin sıralama ağırlıkları (Cumartesi = 0, Perşembe = 1, Pazar = 2, Cuma = 3, diğer günler ise sonraki sırada)
+    const dayWeight:{ [key: number]: number } = {
+      6: 0, // Cumartesi
+      4: 1, // Perşembe
+      0: 2, // Pazar
+      5: 3, // Cuma
+      1: 4, // Pazartesi
+      2: 5, // Salı
+      3: 6, // Çarşamba
+    };
+
     this.dutyDays.sort((a, b) => {
-      return this.dayWeight[b.value.getDay()] - this.dayWeight[a.value.getDay()];
-    })
+      // `a.value.getDay()` ve `b.value.getDay()` ile hafta içindeki günü alıyoruz
+      const aDay = a.value.getDay();
+      const bDay = b.value.getDay();
+      
+      // Öncelikle, günlerin ağırlıklarına göre sıralama yapıyoruz
+      return dayWeight[aDay] - dayWeight[bDay];
+    });
   }
   setAssignedDates() {
     this.assignedDates = []; // Öncelikle assignedDates dizisini sıfırlıyoruz.
