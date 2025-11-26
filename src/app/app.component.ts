@@ -434,10 +434,10 @@ export class AppComponent {
 
         for (const person of this.persons) {
           person.dutyDays = person.dutyDays || [];
-
           if (
             this.userMustNotWorkTwoConsecutiveDays(person, dutyDay.assignedDate) &&
             this.userMustBeAvailable(person, dutyDay.assignedDate) &&
+            (assignHard ? true :  this.noMoreThanTheAverageNumberOfDutysAreWorked(person)) &&
             (assignHard ? true : this.userOnDutyOnThursdayMustNotBeOnDutyOnTheWeekend(person, dutyDay.assignedDate)) &&
             (assignHard ? true : this.userMustNotWorkMoreThanOneShiftOnSameDay(person, dutyDay.assignedDate)) &&
             !person.dutyDays.some(d => d.getTime() === dutyDay.assignedDate.getTime())
