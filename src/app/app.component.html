@@ -22,6 +22,18 @@
         <div class="d-flex justify-content-center text-danger fs-4">{{unassignedDatesCount}} tarihe kimse atanamadı!
         </div>
         }
+        @if(dayWeightAlert()){
+          <div class="alert alert-danger mt-1 p-1 text-center" role="alert">
+           {{dayWeightAlert()}}
+         </div>
+        }
+         @if(dayCountAlert()){
+          <div class="alert alert-danger mt-1 p-1 text-center" role="alert">
+           {{dayCountAlert()}}
+         </div>
+        }
+      
+
         <div class="container">
           @if (assignedDatesView) {
             <div class="row">

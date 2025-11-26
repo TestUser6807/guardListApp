@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CalendarModule } from 'primeng/calendar';
 import { MultiSelectModule } from 'primeng/multiselect';
@@ -40,6 +40,9 @@ export class AppComponent {
     'Cumartesi',
   ];
   assignedDatesView: (AssignedDateModel | null)[][] = Array.from({ length: 7 }, () => []);
+  dayWeightAlert = signal('');
+  dayCountAlert = signal('');
+
   // TODO use json or sqlite database 
   constructor() {
     const storedPersons = localStorage.getItem('persons');
@@ -297,7 +300,7 @@ export class AppComponent {
   }
   hardAssign() {
     let unassignedDates = this.assignedDates.filter(d => d.personId == 'Kimse atanmadı');
-    this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates, true)
+    this.assignShiftsToDaysWithoutAssignedShifts(unassignedDates, true)    
   }
   resetAssignDates() {
     this.resetDuty();
@@ -690,9 +693,39 @@ export class AppComponent {
     // assignedDates dizisini localStorage'a kaydediyoruz
     localStorage.setItem('assignedDates', JSON.stringify(this.assignedDates));
     this.setAssignedDatesView();
+    this.alert();
   }
   getWeekDay(date: Date): string {
     return this.days[date.getDay()];
+  }
+  alert(){
+    const maxWeightedUser = this.persons.reduce((maxUser, currentUser) => {
+      return currentUser.dutyDayWeight > maxUser.dutyDayWeight ? currentUser : maxUser;
+    }, this.persons[0]);
+     const minWeightedUser = this.persons.reduce((minUser, currentUser) => {
+      return currentUser.dutyDayWeight < minUser.dutyDayWeight ? currentUser : minUser;
+    }, this.persons[0]);
+    let minUserAvaliableDayCount = this.dutyDays.length - minWeightedUser.notAvailableDays.length;
+    let userCanDuty = (minUserAvaliableDayCount / 2) -1 >= minWeightedUser.dutyDayCount
+    if(maxWeightedUser.dutyDayWeight - minWeightedUser.dutyDayWeight > 2 && userCanDuty){
+      this.dayWeightAlert.set(`${maxWeightedUser.name} ${maxWeightedUser.dutyDayWeight} ağarlığında nöbet tutarken  ${minWeightedUser.name} ${minWeightedUser.dutyDayWeight} ağarlığında nöbet tutuyor düzeltme gerekebilir!`);
+    }else{
+      this.dayWeightAlert.set('');
+    }
+
+    const maxCountUser = this.persons.reduce((maxUser, currentUser) => {
+      return currentUser.dutyDayCount > maxUser.dutyDayCount ? currentUser : maxUser;
+    }, this.persons[0]);
+     const minCountUser = this.persons.reduce((minUser, currentUser) => {
+      return currentUser.dutyDayCount < minUser.dutyDayCount ? currentUser : minUser;
+    }, this.persons[0]);
+    minUserAvaliableDayCount = this.dutyDays.length - minCountUser.notAvailableDays.length;
+    userCanDuty = (minUserAvaliableDayCount / 2) -1 >= minCountUser.dutyDayCount
+    if(maxCountUser.dutyDayCount - minCountUser.dutyDayCount > 2 && userCanDuty){
+      this.dayCountAlert.set(`${maxWeightedUser.name} ${maxWeightedUser.dutyDayCount} nöbet tutarken  ${minWeightedUser.name} ${minWeightedUser.dutyDayCount} nöbet tutuyor düzeltme gerekebilir!`);
+    }else{
+      this.dayCountAlert.set('');
+    }
   }
   formatDate(date?: Date): string {
     if (!date) return '';
